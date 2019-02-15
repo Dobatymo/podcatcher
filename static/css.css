@@ -1,0 +1,192 @@
+
+html {
+	margin: 0;
+	height: 100%;
+}
+
+body {
+	height: 100%; /* or 100vh, then html does not need 100% */
+	margin: 0;
+	box-sizing: border-box;
+	background-color: lightgrey;
+	display: flex;
+	flex-direction: column;
+	<!--flex-flow: row wrap;*/-->
+}
+
+h1, h2, h3 {
+	line-height: 1;
+}
+
+* {
+  box-sizing: inherit;
+}
+
+header {
+}
+
+article {
+	padding: 0.5em;
+	flex: 5;
+	overflow-y: auto;
+}
+
+nav {
+	padding: 0.5em;
+	flex: 2;
+	overflow-y: auto;
+} 
+
+footer {
+}
+
+h1 {
+	background-color: lightblue;
+}
+
+h2 {
+	background-color: lightyellow;
+}
+
+ol, ul {
+	margin: 0px;
+	padding: 0px;
+}
+
+nav ol, ul {
+	list-style-type: none;
+}
+
+a {
+	color: initial;
+	text-decoration: initial;
+}
+
+a:link {
+	color: initial;
+	text-decoration: initial;
+}
+
+a:visited {
+	color: initial;
+	text-decoration: initial;
+}
+
+a:hover {
+	color: red;
+	text-decoration: initial;
+}
+
+a:active {
+	color: red;
+	text-decoration: initial;
+}
+
+a.listened {
+	text-decoration: initial;
+}
+
+a.listened:hover {
+	text-decoration: line-through;
+}
+
+a.notlistened {
+	text-decoration: line-through;
+}
+
+a.notlistened:hover {
+	text-decoration: initial;
+}
+
+.body {
+	flex: 1;
+	display: flex;
+	overflow-y: auto;
+	position: relative;
+}
+
+article li {
+	list-style-type: none;
+	padding: 5px;
+	margin: 0.5em 0em 0.5em 0em;
+	width: 100%;
+	border: 1px black solid;
+}
+
+.episode {
+	_position: relative;
+}
+
+.episode .info {
+	position: absolute;
+	white-space: pre-line;
+	background-color: white;
+	color: black;
+	border: 1px solid grey;
+	top: calc(0.5em + 10px);
+	left: 0.5em;
+	width: calc(28.57142857142857% - 0.5em);
+	height: calc(100% - 1em - 10px);
+	display: none;
+	z-index: 1;
+	overflow-y: auto;
+	font-size: small;
+}
+
+.episode:hover .info {
+	display: block;
+}
+
+label.checkbox input[type="checkbox"] {
+	display: none;
+}
+label.checkbox span {
+	width: 100%;
+	display: block;
+}
+
+label.checkbox :checked + span {
+	background: rgba(255, 0, 0, 0.2);
+}
+
+label.checkbox span:hover, label.checkbox span:focus {
+	background: rgba(255, 255, 0, 0.2);
+}
+
+.action {
+	display: inline-block;
+	float: right;
+	font-size: initial;
+	font-family: inherit;
+	font-weight: inherit;
+	margin: 0px;
+	padding: 0px;
+	border: none;
+	background-color: lightgrey;
+	cursor: pointer;
+	vertical-align:middle;
+}
+
+.massedit {
+	position: absolute;
+	right: 1em;
+	top: 10px;
+	background: rgba(0, 0, 0, 0.2);
+	padding: 0.5em;
+}
+
+.action:hover {
+	color: red;
+}
+
+.flashes .info {
+
+}
+
+.flashes .warning {
+	color: yellow;
+}
+
+.flashes .error {
+	color: red;
+}

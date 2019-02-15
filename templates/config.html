@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Config</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script src="{{ url_for('static', filename='js.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='w3.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css.css') }}">
+</head>
+<body>
+
+{% with title="Config" %}
+{% include "header.html" %}
+{% endwith %}
+
+<form method="POST" action="{{ url_for('config') }}">
+	<div>{{ form.casts_directory.label }}: {{ form.casts_directory(title=form.casts_directory.description) }}</div>
+	{% if form.casts_directory.errors %}
+	<ul class="errors">{% for error in form.casts_directory.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+	{% endif %}
+
+	<div>{{ form.user_agent.label }}: {{ form.user_agent(title=form.user_agent.description) }}</div>
+	{% if form.user_agent.errors %}
+	<ul class="errors">{% for error in form.user_agent.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+	{% endif %}
+
+	<div>{{ form.network_timeout.label }}: {{ form.network_timeout(title=form.network_timeout.description) }}</div>
+	{% if form.network_timeout.errors %}
+	<ul class="errors">{% for error in form.network_timeout.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+	{% endif %}
+	
+	<div>{{ form.refresh_interval.label }}: {{ form.refresh_interval(title=form.refresh_interval.description) }}</div>
+	{% if form.refresh_interval.errors %}
+	<ul class="errors">{% for error in form.refresh_interval.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+	{% endif %}
+	
+	<input type="submit" />
+</form>
+
+</body>
+</html>

@@ -1,0 +1,26 @@
+<header class="header">
+	<h1>{{ title }}</h1>
+	{% with messages = get_flashed_messages(with_categories=true) %}
+	{% if messages %}
+	<ul class="flashes">
+	{% for category, message in messages %}
+	<li class="w3-display-container">
+	<button onclick="this.parentElement.style.display='none'" class="w3-button w3-display-topright">×</button>
+	<div class="{{ category }}">{{ message }}</div>
+	</li>
+	{% endfor %}
+	</ul>
+	{% endif %}
+	{% endwith %}
+	<nav>
+	<ul class="w3-bar w3-green">
+	<li class=""><a class="w3-button w3-bar-item" href="{{ url_for('casts') }}">Casts</a></li>
+	<li class=""><a class="w3-button w3-bar-item" href="{{ url_for('status', interval=1) }}">Downloads</a></li>
+	<li class=""><a class="w3-button w3-bar-item" href="{{ url_for('config') }}">Config</a></li>
+	<li class="w3-bar-item">|</li>
+	<li class=""><a class="w3-button w3-bar-item" href="{{ url_for('refresh') }}">Refresh</a></li>
+	<li class=""><a class="w3-button w3-bar-item" href="{{ url_for('download') }}">Download all</a></li>
+	<li class=""><a class="w3-button w3-bar-item" href="{{ url_for('save') }}">Save</a></li>
+	</ul>
+	</nav>
+</header>

@@ -1,0 +1,20 @@
+appdata-*/
+web-*.bat
+
+*.bak
+*.xml
+tmp/
+
+# python stuff
+__pycache__/
+*.py[cod]
+*.egg-info
+build/
+dist/
+
+# python lib stuff
+.mypy_cache/
+
+# Translations
+*.mo
+*.pot

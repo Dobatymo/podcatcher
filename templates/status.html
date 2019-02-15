@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Downloads</title>
+<meta http-equiv="refresh" content="{{ interval }}">
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script src="{{ url_for('static', filename='js.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='w3.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css.css') }}">
+</head>
+<body>
+
+{% with title="Downloads" %}
+{% include "header.html" %}
+{% endwith %}
+
+<h2>Queued</h2>
+	{% for url, basepath, filename, expected_size in queued %}
+	<li>{{ url }}</li>
+	{% endfor %}
+<h2>Active</h2>
+	{% for (url, basepath, filename, expected_size), done, total in active %}
+	<li>{{ url }} is {{ done/total*100}}% done</li>
+	{% endfor %}
+<h2>Completed</h2>
+	{% for localname, length in completed %}
+	<li>{{ localname }}</li>
+	{% endfor %}
+<h2>Failed</h2>
+	{% for status, localname, length in failed %}
+	<li>{{ localname }} ({{ status }})</li>
+	{% endfor %}
+
+</body>
+</html>

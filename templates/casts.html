@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PodCatcher</title>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script src="{{ url_for('static', filename='js.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='w3.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css.css') }}">
+</head>
+<body>
+
+{% with title="Casts" %}
+{% include "header.html" %}
+{% endwith %}
+
+<div class="body">
+<nav>
+	<h2>Add cast</h2>
+	<form method="post" action="{{ url_for('addcastc') }}"><input style="float: right;" type="submit" /><div style="overflow: hidden;"><input style="float: right; width: 100%;" type="text" title="Cast URL" name="url" pattern=".+://.+" required="required" /></div></form>
+	<h2>Casts (<a href="{{ url_for('casts') }}">All episodes</a>)</h2>
+	<ol class="w3-bar-block">
+	{% for cast_uid, cast_title, url in casts %}
+	<li class="w3-bar-item w3-button"><a href="{{ url_for('casts', cast_uid=cast_uid) }}">{{ cast_title }}</a> [<a href="{{ url }}">F</a>, <a href="{{ url_for('renamecastc', cast_uid=cast_uid) }}">R</a>, <a href="{{ url_for('removecast', cast_uid=cast_uid) }}">X</a>]</li>
+	{% endfor %}
+	</ol>
+</nav>
+<article>
+	<form method="post" action="{{ url_for('massedit') }}">
+	<h2>{{ cast_title }} episodes</h2>
+	<div class="massedit"><input class="w3-button w3-green" type="submit" name="action" value="download" /><input class="w3-button w3-green" type="submit" name="action" value="delete" /></div>
+	{% if episodes|length > 0 %}
+	<ol>
+	{% for cast_uid, episode_uid, cast_title, episode_title, info, downloaded in episodes %}
+	<li class="episode">
+	<label class="checkbox"><input type="checkbox" name="episode" value="{{ cast_uid }}|{{ episode_uid }}" /><span>
+	<strong>{{ episode_title }}</strong> [{% if downloaded %}<a href="{{ url_for('removeepisode', cast_uid=cast_uid, episode_uid=episode_uid) }}">X</a>, <a href="{{ url_for('playepisode', cast_uid=cast_uid, episode_uid=episode_uid) }}">Play</a>{% else %}<a href="{{ url_for('downloadepisode', cast_uid=cast_uid, episode_uid=episode_uid) }}">Download</a>{% endif %}, <a {% if info.get('listened') %} class="listened" title="Listened on {{ info['listened'].isoformat() }}" href="{{ url_for('unhear', cast_uid=cast_uid, episode_uid=episode_uid) }}" {% else %} class="notlistened" title="I heard this episode" href="{{ url_for('listento', cast_uid=cast_uid, episode_uid=episode_uid) }}" {% endif %} >L</a>]<br/> Date: {{ info['date'].date().strftime('%x') }}, Length: {{ info['duration'] }}<div class="info"><h3>{{ cast_title }}</h3><p>{{ info['description'] }}</p></div>
+	</span></label>
+	</li>
+	{% endfor %}
+	</ol>
+	{% else %}
+	No episodes
+	{% endif %}
+	</form>
+</article>
+</div>
+
+<footer class="footer">
+	<h1>Player<audio controls="controls" preload="none" style="width: 100%;"><!-- autoplay="autoplay" preload="auto" -->
+	<source src="http://localhost:8000/playepisode/UGxhdXNjaGFuZ3JpZmY=/aHR0cDovL2Nkbi5yb2NrZXRtZ210LmRlL21wMy9wbGF1c2NoYW5ncmlmZi9wbGF1c2NoYW5ncmlmZl9lMDEubXAz" type="audio/mpeg">
+	Your browser does not support the audio element.
+	</audio></h1>
+</footer>
+
+<script>
+$('form').find('label.checkbox').shiftSelectable()
+//$('form').find('input[type="checkbox"]').shiftSelectable()
+</script>
+
+</body>
+</html>

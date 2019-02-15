@@ -1,0 +1,9 @@
+flask
+werkzeug
+feedparser
+feedgen
+wtforms
+pafy
+youtube-dl
+pymongo # bson
+genutility

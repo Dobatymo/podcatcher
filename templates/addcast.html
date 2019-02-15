@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PodCatcher</title>
+<style>
+
+</style>
+
+</head>
+<body>
+
+<form method="post" action="{{ url_for('addcast') }}">
+<label>Titel <input type="text" name="title" value="{{ title }}" /></label>
+<label>URL <input type="text" name="url" value="{{ url }}" readonly="readonly" /></label>
+<input type="submit" />
+</form>
+
+</body>
+</html>

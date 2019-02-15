@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PodCatcher</title>
+<style>
+
+</style>
+
+</head>
+<body>
+
+<form method="post" action="{{ url_for('renamecast', cast_uid=cast_uid) }}">
+<label>Titel <input type="text" name="title" value="{{ title }}" /></label>
+<input type="submit" />
+</form>
+
+</body>
+</html>
