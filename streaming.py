@@ -1,35 +1,41 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import pickle
 from io import open
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
-from feedgen.feed import FeedGenerator
 import pafy
+from feedgen.feed import FeedGenerator
+from genutility.datetime import datetime_from_utc_timestamp, now
+from genutility.pickle import read_pickle, write_pickle
 
-from genutility.datetime import now, datetime_from_utc_timestamp
+if TYPE_CHECKING:
+	from datetime import datetime, timedelta
 
 class YoutubeToFeed:
 
 	video_url = "https://www.youtube.com/watch?v={}"
 
 	def __init__(self):
+		# type: () -> None
 
 		self.cachefile = "tmp/youtube-cache.p"
 
 		try:
-			with open(self.cachefile, "rb") as fr:
-				self.cache = pickle.load(fr)
-				self.updated = False
+			self.cache = read_pickle(self.cachefile) # type: Dict[str, Tuple[datetime, FeedGenerator]]
+			self.updated = False
 		except FileNotFoundError:
 			self.cache = dict()
 			self.updated = True
 
 	def save_cache(self, force=False):
+		# type: (bool, ) -> None
+
 		if self.updated or force:
-			with open(self.cachefile, "wb") as fw:
-				pickle.dump(self.cache, fw)
+			write_pickle(self.cache, self.cachefile)
 
 	def get_feed(self, playlist, max_age=None):
+		# type: (str, Optional[timedelta]) -> FeedGenerator
+
 		try:
 			dt, feed = self.cache[playlist]
 			if max_age and now() - dt > max_age:
@@ -43,7 +49,9 @@ class YoutubeToFeed:
 		return feed
 
 	def create_feed(self, playlist, start=None, end=None):
-		# playlist must be a youtube playlist url
+		# type: (str, Optional[int], Optional[int]) -> FeedGenerator
+
+		""" playlist must be a youtube playlist url """
 
 		pl = pafy.get_playlist(playlist, gdata=False)
 		location = 'http://localhost/yt.atom' #request.url

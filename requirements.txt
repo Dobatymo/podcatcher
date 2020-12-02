@@ -1,9 +1,9 @@
 flask
-werkzeug
+werkzeug>=0.12 # for range requests
 feedparser
 feedgen
-wtforms
+WTForms
 pafy
 youtube-dl
 pymongo # bson
-genutility
+genutility[json,http,flask]

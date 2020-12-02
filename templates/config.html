@@ -29,12 +29,12 @@
 	{% if form.network_timeout.errors %}
 	<ul class="errors">{% for error in form.network_timeout.errors %}<li>{{ error }}</li>{% endfor %}</ul>
 	{% endif %}
-	
+
 	<div>{{ form.refresh_interval.label }}: {{ form.refresh_interval(title=form.refresh_interval.description) }}</div>
 	{% if form.refresh_interval.errors %}
 	<ul class="errors">{% for error in form.refresh_interval.errors %}<li>{{ error }}</li>{% endfor %}</ul>
 	{% endif %}
-	
+
 	<input type="submit" />
 </form>
 

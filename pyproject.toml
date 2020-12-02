@@ -1,0 +1,4 @@
+[tool.isort]
+indent = "tab"
+src_paths = ["."]
+line_length = 120
