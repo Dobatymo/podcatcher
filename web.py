@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from typing import Tuple
 
 from flask import Flask, Response, abort, flash, make_response, redirect, render_template, request, send_file, url_for
+from genutility.args import is_dir
 from genutility.flask import Base64Converter
 from wtforms import Form, IntegerField, StringField, validators
 
@@ -36,7 +37,7 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 parser = ArgumentParser()
-parser.add_argument("--appdatadir", help="appdata directory")
+parser.add_argument("--appdatadir", type=is_dir, help="appdata directory")
 parser.add_argument("--quiet", action="store_true", help="don't show debug output")
 args = parser.parse_args()
 

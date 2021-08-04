@@ -5,7 +5,9 @@ import os
 import os.path
 import sys
 import time
-from typing import IO, TYPE_CHECKING, List, Optional, Tuple
+from functools import partial
+from pathlib import Path
+from typing import IO, TYPE_CHECKING, Callable, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 
 import feedparser
@@ -13,6 +15,7 @@ from bson import json_util
 from genutility.concurrency import ProgressThreadPool
 from genutility.datetime import now
 from genutility.filesystem import safe_filename
+from genutility.func import retry
 from genutility.http import ContentInvalidLength, URLRequest
 from genutility.iter import first_not_none
 from genutility.json import read_json, write_json
@@ -20,9 +23,17 @@ from genutility.string import toint
 
 if TYPE_CHECKING:
 	from datetime import datetime
-	from pathlib import Path
 
 	from feedparser import FeedParserDict
+
+"""
+
+Failed
+None (URL can't contain control characters. '/podlove/file/992/s/feed/c/nukularaacfeed/Radio Nukular X Babbel-Net Folge 1.m4a' (found at least ' '))
+None (URL can't contain control characters. '/podlove/file/1278/s/feed/c/nukularaacfeed/Rockstah hat etwas vor.m4a' (found at least ' '))
+None (HTTP Error 404: Media File not found)
+
+"""
 
 class ProgressReport:
 
@@ -47,10 +58,13 @@ class DownloadTask:
 		status, length, localname
 '''
 
-def download(url, basepath, filename=None, fn_prio=None, overwrite=False, suffix=".partial", report=None, timeout=5*60, headers=None):
+def download(url: str, basepath: str, filename: Optional[str]=None, fn_prio=None, overwrite: bool=False, suffix=".partial", report=None, timeout=5*60, headers=None) -> Tuple[Optional[int], str]:
 	return URLRequest(url, headers, timeout).download(basepath, filename, fn_prio, overwrite, suffix, report)
 
-def download_handle(report, setter, url, basepath, filename, fn_prio, overwrite, expected_size=None, timeout=None, headers=None):
+def download_handle(report, setter: Callable, url: str, basepath: str, filename: Optional[str], fn_prio, overwrite: bool, expected_size=None, timeout=None, headers=None):
+
+	localname: Optional[str]
+	status: Optional[Exception]
 
 	try:
 		(length, localname) = download(url, basepath, filename, fn_prio, overwrite, report=report, timeout=timeout, headers=headers)
@@ -149,8 +163,8 @@ class Catcher(object):
 	def episode(self, cast_uid, episode_uid):
 		# type: (str, str) -> Optional[dict]
 
-		if "|" in cast_uid or "|" in episode_uid:
-			raise ValueError("arguments cannot contain '|'")
+		#if "|" in cast_uid or "|" in episode_uid:
+		#	raise ValueError("arguments cannot contain '|'")
 
 		cast = self.db.get(cast_uid)
 		if cast:
@@ -206,13 +220,18 @@ class Catcher(object):
 		self.save_roaming()
 		self.update_feed(title, feed)
 		try:
-			(self.casts_dir / title).mkdir(exist_ok=True)
+
+			safe_title = safe_filename(title, "_")
+
+			if self.is_name_collision(safe_title):
+				raise ValueError("Name collision")
+
+			(self.casts_dir / safe_title).mkdir(exist_ok=True)
 			return True
 		except FileExistsError:
 			return False
 
-	def remove_cast(self, cast_uid, files=False): # fixme: delete files not implemented
-		# type: (str, bool) -> None
+	def remove_cast(self, cast_uid: str, files: bool=False) -> None: # fixme: delete files not implemented
 
 		if (cast_uid in self.casts) != (cast_uid in self.db):
 			raise RuntimeError("Inconsistent database")
@@ -221,6 +240,15 @@ class Catcher(object):
 		del self.db[cast_uid] # should 'listened to' information be kept?
 		self.save_roaming()
 		self.save_local()
+
+	def is_name_collision(self, safe_name: str, cast_uid: str=None) -> bool:
+
+		for cast_name in self.casts:
+			if cast_uid is None or cast_name != cast_uid:
+				if safe_name == safe_filename(cast_name, "_"):
+					return True
+
+		return False
 
 	def rename_cast(self, cast_uid, name):
 		# type: (str, str) -> None
@@ -237,11 +265,14 @@ class Catcher(object):
 		if name in self.casts:
 			raise ValueError("Cast already exists")
 
-		if safe_filename(name) != name:
-			raise ValueError("Invalid name")
+		safe_cast_uid = safe_filename(cast_uid, "_")
+		safe_name = safe_filename(name, "_")
+
+		if self.is_name_collision(safe_name, cast_uid):
+			raise ValueError("Name collision")
 
 		try:
-			(self.casts_dir / cast_uid).rename(self.casts_dir / name)
+			(self.casts_dir / safe_cast_uid).rename(self.casts_dir / safe_name)
 		except FileNotFoundError:
 			raise ValueError("Cast directory not found")
 		except FileExistsError:
@@ -307,8 +338,11 @@ class Catcher(object):
 
 		logging.debug("Refreshing all feeds")
 		for title, cast in self.casts.items():
-			feed = feedparser.parse(cast["url"])
-			self.update_feed(title, feed)
+			try:
+				feed = retry(partial(feedparser.parse, cast["url"]), 30, (URLError, ), attempts=3, multiplier=2)
+				self.update_feed(title, feed)
+			except URLError as e:
+				logging.warning("Could not update %s (%s): %s", title, cast["url"], e)
 
 		self.save_local()
 
@@ -337,17 +371,15 @@ class Catcher(object):
 		else:
 			fn_prio = None
 
-		if 	safe_filename(cast_uid) != cast_uid:
-			raise ValueError("invalid cast_uid")
-
-		dirpath = self.casts_dir / safe_filename(cast_uid) # make sure still unique
+		dirpath = self.casts_dir / safe_filename(cast_uid, "_") # make sure still unique
 
 		db_entry = self.episode(cast_uid, episode_uid)
 
 		if not db_entry:
 			raise KeyError((cast_uid, episode_uid))
 
-		if not force and db_entry.get("localname", None):
+		if not force and db_entry.get("localname"):
+			logging.info("File already downloaded for %s/%s: %s", cast_uid, episode_uid, db_entry.get("localname"))
 			return None
 
 		# these two values are only given own variables to aid mypy in its flow analysis
@@ -357,7 +389,8 @@ class Catcher(object):
 		if not title or not mimetype:
 			filename = None
 		else:
-			ext = mimetypes.guess_extension(mimetype)
+			ext = {"audio/x-mpeg": ".mp3"}.get(mimetype, None) or mimetypes.guess_extension(mimetype)
+
 			if ext:
 				filename = safe_filename(title) + ext
 			else:
@@ -366,7 +399,13 @@ class Catcher(object):
 		def setter(localname):
 			db_entry["localname"] = localname
 
-		self.dl.start(download_handle, setter, db_entry.get("href"), dirpath, filename, fn_prio, overwrite, expected_size=db_entry.get("length"), timeout=self.timeout, headers=self.headers)
+		url = db_entry.get("href")
+
+		if not url:
+			logging.warning("No URL found for {}/{}", cast_uid, episode_uid)
+			return None
+
+		self.dl.start(download_handle, setter, url, dirpath, filename, fn_prio, overwrite, expected_size=db_entry.get("length"), timeout=self.timeout, headers=self.headers)
 
 		"""
 		try:
