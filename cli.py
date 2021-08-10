@@ -1,6 +1,8 @@
 import logging
 import time
 
+from genutility.stdio import print_terminal_progress_line
+
 from catcher import Catcher
 
 
@@ -8,9 +10,9 @@ def wait_for_downloads(c: Catcher) -> None:
 	while True:
 		queued, active, completed, failed = c.get_download_status()
 		if active:
-			print(f"queued: {len(queued)}, active: {len(active)}, completed: {len(completed)}, failed: {len(failed)}. Downloaded {active[0][1]}/{active[0][2]}.", end="\r")
+			print_terminal_progress_line(f"queued: {len(queued)}, active: {len(active)}, completed: {len(completed)}, failed: {len(failed)}. Downloaded {active[0][1]}/{active[0][2]} of {active[0][0][0]}.")
 		else:
-			print(f"queued: {len(queued)}, active: {len(active)}, completed: {len(completed)}, failed: {len(failed)}", end="\r")
+			print_terminal_progress_line(f"queued: {len(queued)}, active: {len(active)}, completed: {len(completed)}, failed: {len(failed)}")
 
 		if not queued and not active:
 			print("completed")
@@ -22,7 +24,7 @@ def wait_for_downloads(c: Catcher) -> None:
 
 			break
 
-			time.sleep(1)
+		time.sleep(1)
 
 if __name__ == "__main__":
 

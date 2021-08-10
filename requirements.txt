@@ -1,7 +1,7 @@
 feedgen
 feedparser
 flask
-genutility[json,http,flask]
+genutility[json,http,flask]>=0.0.74
 pafy
 werkzeug>=0.12 # for range requests
 WTForms

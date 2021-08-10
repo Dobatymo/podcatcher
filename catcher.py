@@ -1,3 +1,4 @@
+import concurrent.futures
 import email.utils
 import logging
 import mimetypes
@@ -9,7 +10,7 @@ import time
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Callable, List, Optional, Tuple
+from typing import IO, TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 
 import feedparser
@@ -35,6 +36,9 @@ None (URL can't contain control characters. '/podlove/file/1278/s/feed/c/nukular
 None (HTTP Error 404: Media File not found)
 
 """
+
+DEFAULT_NETWORK_TIMEOUT = 60
+DEFAULT_CONCURRENT_DOWNLOADS = 2
 
 class ProgressReport:
 
@@ -72,7 +76,7 @@ def download_handle(report, setter: Callable, url: str, basepath: str, filename:
 		status = None
 
 		if expected_size and expected_size != length:
-			logging.error("Download succeeded, but size {} doesn't match enclosure length {}".format(length, expected_size))
+			logging.error("Download succeeded, but size %s doesn't match enclosure length %s", length, expected_size)
 
 	except FileExistsError as e:
 		localname = os.path.basename(e.filename)
@@ -80,18 +84,26 @@ def download_handle(report, setter: Callable, url: str, basepath: str, filename:
 		status = None
 
 		if expected_size and expected_size != length:
-			logging.warning("{} exists, but size {} doesn't match enclosure length {}".format(e.filename, length, expected_size))
+			logging.warning("%s exists, but size %s doesn't match enclosure length %s", e.filename, length, expected_size)
 
 	except ContentInvalidLength as e:
 		localname = os.path.basename(e.args[0])
 		length = e.args[2] # can raise not found or sth. again
 		status = e
 		logging.warning("%s might be incomplete. Transferred %d/%d", localname, e.args[1], e.args[2])
-	except (HTTPError, URLError) as e:
+	except HTTPError as e:
 		localname = None
 		length = None
 		status = e
-		logging.exception("Downloading %s failed.", url)
+		if e.code == 404:
+			logging.error("HTTP 404 error for <%s>", url)
+		else:
+			logging.exception("Downloading <%s> failed.", url)
+	except URLError as e:
+		localname = None
+		length = None
+		status = e
+		logging.exception("Downloading <%s> failed.", url)
 	except Exception as e:
 		localname = None
 		length = None
@@ -140,14 +152,15 @@ class Catcher(object):
 
 		self.load_config()
 
-		self.timeout = self.config["network-timeout"]
+		self.timeout = self.config.get("network-timeout", DEFAULT_NETWORK_TIMEOUT)
 		self.user_agent = self.config["user-agent"]
 		self.casts_dir = Path(self.config["casts-directory"])
 		self.interval = self.config["refresh-interval"] # seconds, unused so far
+		self.concurrent_downloads = self.config.get("concurrent-downloads", DEFAULT_CONCURRENT_DOWNLOADS)
 
 		self.headers = {"User-Agent": self.user_agent}
 
-		self.dl = ProgressThreadPool()
+		self.dl = ProgressThreadPool(concurrent=self.concurrent_downloads)
 
 		self.load_roaming()
 		# self.load_local()
@@ -170,6 +183,9 @@ class Catcher(object):
 	def save_roaming(self):
 		# type: () -> None
 
+		if len(self.casts) != len(self.db):
+			logging.warning("Inconsistent file information. Casts: %s, DB: %s", len(self.casts), len(self.db))
+
 		write_json(self.casts, self.appdatadir / self.FILENAME_CASTS, indent="\t", cls=BuiltinRoundtripEncoder, safe=True)
 
 	def load_local(self):
@@ -179,6 +195,9 @@ class Catcher(object):
 
 	def save_local(self):
 		# type: () -> None
+
+		if len(self.casts) != len(self.db):
+			logging.warning("Inconsistent file information. Casts: %s, DB: %s", len(self.casts), len(self.db))
 
 		write_json(self.db, self.appdatadir / self.FILENAME_FEEDS, indent="\t", cls=BuiltinRoundtripEncoder, safe=True)
 
@@ -217,10 +236,8 @@ class Catcher(object):
 
 		feed = feedparser.parse(url)
 
-		try:
-			logging.error("Parsing feed failed: %s", feed.bozo_exception)
-		except AttributeError:
-			pass
+		if feed.bozo:
+			logging.error("Feed mal-formed <%s>: %s", url, feed.bozo_exception)
 
 		if len(feed.feed) == 0 and len(feed.entries) == 0: # compare with standard
 			raise InvalidFeed("Feed does neither contain a description nor files")
@@ -376,14 +393,23 @@ class Catcher(object):
 		# type: () -> None
 
 		logging.debug("Refreshing all feeds")
-		for cast_uid, cast in self.casts.items():
-			try:
-				title, feed = retry(partial(self.get_feed, cast["url"]), 30, (URLError, ), attempts=3, multiplier=2)
-				self.update_feed(cast_uid, feed)
-			except URLError as e:
-				logging.warning("Could not update %s (%s): %s", cast_uid, cast["url"], e)
-			except InvalidFeed as e:
-				logging.warning("Invalid feed %s (%s): %s", cast_uid, cast["url"], e)
+
+		with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+			futures: Dict[concurrent.futures.Future, str] = {}
+			for cast_uid, cast in self.casts.items():
+				future = executor.submit(retry, partial(self.get_feed, cast["url"]), 10, (URLError, ), attempts=2, multiplier=1.5)
+				futures[future] = cast_uid
+
+			for future in concurrent.futures.as_completed(futures):
+				cast_uid = futures[future]
+				cast = self.casts[cast_uid]
+				try:
+					_, feed = future.result()
+					self.update_feed(cast_uid, feed)
+				except URLError as e:
+					logging.warning("Could not update %s <%s>: %s", cast_uid, cast["url"], e)
+				except InvalidFeed as e:
+					logging.warning("Invalid feed %s <%s>: %s", cast_uid, cast["url"], e)
 
 		self.save_local()
 
@@ -420,7 +446,7 @@ class Catcher(object):
 			raise KeyError((cast_uid, episode_uid))
 
 		if not force and db_entry.get("localname"):
-			logging.info("File already downloaded for %s/%s: %s", cast_uid, episode_uid, db_entry.get("localname"))
+			logging.debug("File already downloaded for %s/%s: %s", cast_uid, episode_uid, db_entry.get("localname"))
 			return None
 
 		# these two values are only given own variables to aid mypy in its flow analysis
@@ -443,7 +469,7 @@ class Catcher(object):
 		url = db_entry.get("href")
 
 		if not url:
-			logging.warning("No URL found for {}/{}", cast_uid, episode_uid)
+			logging.warning("No URL found for %s/%s", cast_uid, episode_uid)
 			return None
 
 		self.dl.start(download_handle, setter, url, dirpath, filename, fn_prio, overwrite, expected_size=db_entry.get("length"), timeout=self.timeout, headers=self.headers)
@@ -455,12 +481,12 @@ class Catcher(object):
 
 			db_entry["localname"] = localname
 			if db_entry.get("length") and db_entry.get("length") != length:
-				logging.error("Download succeeded, but size {} doesn't match enclosure length {}".format(length, db_entry.get("length")))
+				logging.error("Download succeeded, but size %s doesn't match enclosure length %s", length, db_entry.get("length"))
 
 		except FileExistsError as e:
 			db_entry["localname"] = os.path.basename(e.filename)
 			if db_entry.get("length") and db_entry.get("length") != os.stat(e.filename).st_size: # can raise not found or sth again
-				logging.warning("{} exists, but size {} doesn't match enclosure length {}".format(e.filename, os.stat(e.filename).st_size, db_entry.get("length")))
+				logging.warning("%s exists, but size %s doesn't match enclosure length %s", e.filename, os.stat(e.filename).st_size, db_entry.get("length"))
 
 		except ContentInvalidLength as e:
 			pass
