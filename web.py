@@ -93,11 +93,6 @@ def casts(cast_uid=None):
 		for cast_uid, feed in c.db.items():
 			for episode_uid in feed["items"]:
 				info = c.episode(cast_uid, episode_uid)
-				if info["duration"] is None:
-					duration = "Unknown"
-				else:
-					duration = info["duration"]
-				logging.debug("%s %s duration: %s", cast_uid, episode_uid, duration)
 				episodes.append((cast_uid, episode_uid, cast_uid, info["title"], info, is_downloaded(info)))
 		cast_title = "All"
 	else:
@@ -109,10 +104,6 @@ def casts(cast_uid=None):
 
 		for episode_uid in feed["items"]:
 			info = c.episode(cast_uid, episode_uid)
-			if info["duration"] is None: # copied, offload to template
-				duration = "Unknown"
-			else:
-				duration = info["duration"]
 			episodes.append((cast_uid, episode_uid, cast_uid, info["title"], info, is_downloaded(info)))
 
 		cast_title = cast_uid

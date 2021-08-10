@@ -3,22 +3,23 @@ import logging
 import mimetypes
 import os
 import os.path
+import re
 import sys
 import time
+from datetime import timedelta
 from functools import partial
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Callable, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 
 import feedparser
-from bson import json_util
 from genutility.concurrency import ProgressThreadPool
 from genutility.datetime import now
 from genutility.filesystem import safe_filename
 from genutility.func import retry
 from genutility.http import ContentInvalidLength, URLRequest
 from genutility.iter import first_not_none
-from genutility.json import read_json, write_json
+from genutility.json import BuiltinRoundtripDecoder, BuiltinRoundtripEncoder, read_json, write_json
 from genutility.string import toint
 
 if TYPE_CHECKING:
@@ -105,6 +106,27 @@ class NoTitleError(Exception):
 class InvalidFeed(Exception):
 	pass
 
+durationp = re.compile(r"(?:([0-9]{1,2}):)?([0-9]{1,2}):([0-9]{1,2})")
+
+def parse_itunes_duration(itunes_duration: Optional[str]) -> Optional[timedelta]:
+	if itunes_duration is None:
+		return None
+
+	m = durationp.match(itunes_duration)
+	if m:
+		hours, minutes, seconds = m.groups()
+		hrs = toint(hours, 0)
+		min = int(minutes)
+		sec = int(seconds)
+		return timedelta(hours=hrs, minutes=min, seconds=sec)
+
+	try:
+		sec = int(itunes_duration)
+	except ValueError:
+		return None
+	else:
+		return timedelta(seconds=sec)
+
 class Catcher(object):
 
 	FILENAME_CONFIG = "config.json"
@@ -128,37 +150,37 @@ class Catcher(object):
 		self.dl = ProgressThreadPool()
 
 		self.load_roaming()
-		self.load_local()
+		# self.load_local()
 
 	def load_config(self):
 		# type: () -> None
 
-		self.config = read_json(self.appdatadir / self.FILENAME_CONFIG, object_hook=json_util.object_hook)
+		self.config = read_json(self.appdatadir / self.FILENAME_CONFIG, cls=BuiltinRoundtripDecoder)
 
 	def save_config(self):
 		# type: () -> None
 
-		write_json(self.config, self.appdatadir / self.FILENAME_CONFIG, indent="\t", default=json_util.default)
+		write_json(self.config, self.appdatadir / self.FILENAME_CONFIG, indent="\t", cls=BuiltinRoundtripEncoder, safe=True)
 
 	def load_roaming(self):
 		# type: () -> None
 
-		self.casts = read_json(self.appdatadir / self.FILENAME_CASTS, object_hook=json_util.object_hook)
+		self.casts = read_json(self.appdatadir / self.FILENAME_CASTS, cls=BuiltinRoundtripDecoder)
 
 	def save_roaming(self):
 		# type: () -> None
 
-		write_json(self.casts, self.appdatadir / self.FILENAME_CASTS, indent="\t", default=json_util.default)
+		write_json(self.casts, self.appdatadir / self.FILENAME_CASTS, indent="\t", cls=BuiltinRoundtripEncoder, safe=True)
 
 	def load_local(self):
 		# type: () -> None
 
-		self.db = read_json(self.appdatadir / self.FILENAME_FEEDS, object_hook=json_util.object_hook)
+		self.db = read_json(self.appdatadir / self.FILENAME_FEEDS, cls=BuiltinRoundtripDecoder)
 
 	def save_local(self):
 		# type: () -> None
 
-		write_json(self.db, self.appdatadir / self.FILENAME_FEEDS, indent="\t", default=json_util.default)
+		write_json(self.db, self.appdatadir / self.FILENAME_FEEDS, indent="\t", cls=BuiltinRoundtripEncoder, safe=True)
 
 	def episode(self, cast_uid, episode_uid):
 		# type: (str, str) -> Optional[dict]
@@ -207,82 +229,102 @@ class Catcher(object):
 
 		return (title, feed)
 
-	def add_feed(self, url, title, feed):
+	def update_feed_url(self, cast_uid: str, url: str):
+		try:
+			feed = self.casts[cast_uid]
+		except KeyError:
+			raise ValueError(f"Feed {cast_uid} doesn't exist.")
+
+		feed["url"] = url
+
+	def add_feed(self, url, cast_uid, feed):
 		# type: (str, str, FeedParserDict) -> bool
 
-		if not url or not title or not feed:
+		if not url or not cast_uid or not feed:
 			raise ValueError("argument values cannot be empty")
 
-		if title in self.casts:
-			logging.info("Updating existing cast {}".format(title))
+		if cast_uid in self.casts:
+			raise ValueError(f"{cast_uid} already exists")
 
-		self.casts[title] = {"url": url}
+		cast_uid_safe = safe_filename(cast_uid, "_")
+		collision = self.is_name_collision_add(cast_uid_safe)
+		if collision:
+			raise ValueError(f"Name collision with {collision}")
+
+		self.casts[cast_uid] = {"url": url}
 		self.save_roaming()
-		self.update_feed(title, feed)
+		self.update_feed(cast_uid, feed)
 		try:
-
-			safe_title = safe_filename(title, "_")
-
-			if self.is_name_collision(safe_title):
-				raise ValueError("Name collision")
-
-			(self.casts_dir / safe_title).mkdir(exist_ok=True)
+			(self.casts_dir / cast_uid_safe).mkdir(exist_ok=True)
 			return True
 		except FileExistsError:
 			return False
 
-	def remove_cast(self, cast_uid: str, files: bool=False) -> None: # fixme: delete files not implemented
+	def remove_cast(self, cast_uid: str, files: bool=False) -> None:
 
 		if (cast_uid in self.casts) != (cast_uid in self.db):
 			raise RuntimeError("Inconsistent database")
+
+		if files:
+			raise RuntimeError("Deleting files not yet implemented")
 
 		del self.casts[cast_uid]
 		del self.db[cast_uid] # should 'listened to' information be kept?
 		self.save_roaming()
 		self.save_local()
 
-	def is_name_collision(self, safe_name: str, cast_uid: str=None) -> bool:
+	def is_name_collision_add(self, cast_uid_new_safe: str) -> Optional[str]:
 
-		for cast_name in self.casts:
-			if cast_uid is None or cast_name != cast_uid:
-				if safe_name == safe_filename(cast_name, "_"):
-					return True
+		for cast_uid in self.casts:
+			if cast_uid_new_safe == safe_filename(cast_uid, "_"):
+				return cast_uid
 
-		return False
+		return None
 
-	def rename_cast(self, cast_uid, name):
-		# type: (str, str) -> None
+	def is_name_collision_rename(self, cast_uid_new_safe: str, cast_uid_old: str) -> Optional[str]:
 
-		if (name in self.casts) != (name in self.db):
+		for cast_uid in self.casts:
+			if cast_uid_old != cast_uid:
+				if cast_uid_new_safe == safe_filename(cast_uid, "_"):
+					return cast_uid
+
+		return None
+
+	def rename_cast(self, cast_uid_old: str, cast_uid_new: str) -> None:
+
+		if (cast_uid_new in self.casts) != (cast_uid_new in self.db):
 			raise RuntimeError("Inconsistent database")
 
-		if (cast_uid in self.casts) != (cast_uid in self.db):
+		if (cast_uid_old in self.casts) != (cast_uid_old in self.db):
 			raise RuntimeError("Inconsistent database")
 
-		if cast_uid == name: # put after asserts, so inconsistent database is found earlier
+		if cast_uid_old == cast_uid_new: # put after asserts, so inconsistent database is found earlier
 			return
 
-		if name in self.casts:
+		if cast_uid_new in self.casts:
 			raise ValueError("Cast already exists")
 
-		safe_cast_uid = safe_filename(cast_uid, "_")
-		safe_name = safe_filename(name, "_")
+		cast_uid_old_safe = safe_filename(cast_uid_old, "_")
+		cast_uid_new_safe = safe_filename(cast_uid_new, "_")
 
-		if self.is_name_collision(safe_name, cast_uid):
-			raise ValueError("Name collision")
+		collision = self.is_name_collision_rename(cast_uid_new_safe, cast_uid_old)
+		if collision:
+			raise ValueError(f"Name collision with {collision}")
 
 		try:
-			(self.casts_dir / safe_cast_uid).rename(self.casts_dir / safe_name)
+			(self.casts_dir / cast_uid_old_safe).rename(self.casts_dir / cast_uid_new_safe)
 		except FileNotFoundError:
 			raise ValueError("Cast directory not found")
 		except FileExistsError:
 			raise ValueError("Directory already exists")
 
-		self.casts[name] = self.casts.pop(cast_uid)
-		self.db[name] = self.db.pop(cast_uid)
+		self.casts[cast_uid_new] = self.casts.pop(cast_uid_old)
+		self.db[cast_uid_new] = self.db.pop(cast_uid_old)
 
-	def remove_episode(self, cast_uid, episode_uid, file=False):
-		# type: (str, str, bool) -> Optional[str]
+	def remove_episode(self, cast_uid: str, episode_uid: str, file: bool=False) -> Optional[str]:
+
+		if file:
+			raise RuntimeError("Deleting files not yet implemented")
 
 		ep = self.episode(cast_uid, episode_uid)
 		if not ep:
@@ -292,10 +334,6 @@ class Catcher(object):
 
 	def update_feed(self, cast_uid, feed):
 		# type: (str, FeedParserDict) -> None
-
-		# changes self.db
-		# use length, <itunes:duration>00:51:08</itunes:duration>
-		# use length, <itunes:duration>02:10:42</itunes:duration>
 
 		try:
 			pub = email.utils.parsedate_to_datetime(feed.feed.published) # type: Optional[datetime]
@@ -322,7 +360,8 @@ class Catcher(object):
 			except AttributeError:
 				entry_pub = None
 
-			db_entry.update({"title": entry.get("title"), "date": entry_pub, "duration": entry.get("itunes_duration"), "description": entry.get("description")})
+			duration = parse_itunes_duration(entry.get("itunes_duration"))
+			db_entry.update({"title": entry.get("title"), "date": entry_pub, "duration": duration, "description": entry.get("description")})
 
 			encs = len(entry.get("enclosures"))
 			if encs == 0:
@@ -337,12 +376,14 @@ class Catcher(object):
 		# type: () -> None
 
 		logging.debug("Refreshing all feeds")
-		for title, cast in self.casts.items():
+		for cast_uid, cast in self.casts.items():
 			try:
-				feed = retry(partial(feedparser.parse, cast["url"]), 30, (URLError, ), attempts=3, multiplier=2)
-				self.update_feed(title, feed)
+				title, feed = retry(partial(self.get_feed, cast["url"]), 30, (URLError, ), attempts=3, multiplier=2)
+				self.update_feed(cast_uid, feed)
 			except URLError as e:
-				logging.warning("Could not update %s (%s): %s", title, cast["url"], e)
+				logging.warning("Could not update %s (%s): %s", cast_uid, cast["url"], e)
+			except InvalidFeed as e:
+				logging.warning("Invalid feed %s (%s): %s", cast_uid, cast["url"], e)
 
 		self.save_local()
 

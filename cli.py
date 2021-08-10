@@ -31,11 +31,11 @@ if __name__ == "__main__":
 	from genutility.args import is_dir
 
 	parser = ArgumentParser(description="PodCatcher")
-	parser.add_argument("action", choices=["download", "add-feed", "remove-feed"])
+	parser.add_argument("action", choices=["download", "add-feed", "remove-feed", "update-feed", "update-feeds", "update-feed-url", "load", "save"])
 	parser.add_argument("--url", help="Feed URL")
 	parser.add_argument("--title", help="Feed title")
 	parser.add_argument("--appdatadir", type=is_dir, help="appdata directory")
-	parser.add_argument("--verbose", action="store_true")
+	parser.add_argument("-v", "--verbose", action="store_true")
 	args = parser.parse_args()
 
 	if args.verbose:
@@ -69,3 +69,29 @@ if __name__ == "__main__":
 		if not args.title:
 			parser.error("remove-feed requires --title")
 		c.remove_cast(args.title)
+
+	elif args.action == "update-feed":
+		if not args.title:
+			parser.error("update-feed requires --title")
+
+		url = c.casts[args.title]["url"]
+		logging.info("Updating feed: %s", url)
+		_, feed = c.get_feed(url)
+		c.update_feed(args.title, feed)
+		c.save_local()
+
+	elif args.action == "update-feeds":
+		if not feeds_updated:
+			c.update_feeds()
+			feeds_updated = True
+
+	elif args.action == "update-feed-url":
+		if not args.url or not args.title:
+			parser.error("update-feed-url requires --url and --title")
+		c.update_feed_url(args.title, args.url)
+
+	elif args.action == "load":
+		pass
+
+	elif args.action == "save":
+		c.save_local()

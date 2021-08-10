@@ -3,7 +3,6 @@ feedparser
 flask
 genutility[json,http,flask]
 pafy
-pymongo # bson
 werkzeug>=0.12 # for range requests
 WTForms
 youtube-dl>=2021.6.6
