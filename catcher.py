@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 
 	from feedparser import FeedParserDict
 
+logger = logging.getLogger(__name__)
+
 """
 
 Failed
@@ -269,12 +271,17 @@ class Catcher(object):
 			raise ValueError(f"Name collision with {collision}")
 
 		self.casts[cast_uid] = {"url": url}
-		self.save_roaming()
 		self.update_feed(cast_uid, feed)
+		self.save_roaming()
+		self.save_local()
+
 		try:
 			(self.casts_dir / cast_uid_safe).mkdir(exist_ok=True)
 			return True
 		except FileExistsError:
+			return False
+		except FileNotFoundError as e:
+			logger.warning("Could not create directory: %s", e)
 			return False
 
 	def remove_cast(self, cast_uid: str, files: bool=False) -> None:
