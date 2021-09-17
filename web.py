@@ -36,8 +36,10 @@ item id order: guid, link, title, description, pubDate
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
+from utils import DEFAULT_APPDATA_DIR
+
 parser = ArgumentParser()
-parser.add_argument("--appdatadir", type=is_dir, help="appdata directory")
+parser.add_argument("--appdata-dir", type=is_dir, default=DEFAULT_APPDATA_DIR, help="Path to appdata directory")
 parser.add_argument("--quiet", action="store_true", help="don't show debug output")
 args = parser.parse_args()
 
@@ -46,7 +48,7 @@ if args.quiet:
 else:
 	logging.basicConfig(level=logging.DEBUG)
 
-c = Catcher(args.appdatadir)
+c = Catcher(args.appdata_dir)
 yt = YoutubeToFeed()
 
 try:

@@ -32,11 +32,16 @@ if __name__ == "__main__":
 
 	from genutility.args import is_dir
 
+	from utils import DEFAULT_APPDATA_DIR
+
+	APP_NAME = "podcatcher"
+	APP_AUTHOR = "Dobatymo"
+
 	parser = ArgumentParser(description="PodCatcher")
 	parser.add_argument("action", choices=["download", "add-feed", "remove-feed", "update-feed", "update-feeds", "update-feed-url", "load", "save"])
 	parser.add_argument("--url", help="Feed URL")
 	parser.add_argument("--title", help="Feed title")
-	parser.add_argument("--appdatadir", type=is_dir, help="appdata directory")
+	parser.add_argument("--appdata-dir", type=is_dir, default=DEFAULT_APPDATA_DIR, help="Path to appdata directory")
 	parser.add_argument("-v", "--verbose", action="store_true")
 	args = parser.parse_args()
 
@@ -45,7 +50,7 @@ if __name__ == "__main__":
 	else:
 		logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s", level=logging.INFO)
 
-	c = Catcher(args.appdatadir)
+	c = Catcher(args.appdata_dir)
 	try:
 		c.load_local()
 		feeds_updated = False
