@@ -5,14 +5,17 @@ import mimetypes
 import os
 import os.path
 import re
+import ssl
 import sys
 import time
 from datetime import timedelta
 from functools import partial
+from io import BytesIO
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 
+import certifi
 import feedparser
 from genutility.concurrency import ProgressThreadPool
 from genutility.datetime import now
@@ -41,6 +44,10 @@ None (HTTP Error 404: Media File not found)
 
 DEFAULT_NETWORK_TIMEOUT = 60
 DEFAULT_CONCURRENT_DOWNLOADS = 2
+
+ssl_context = ssl.SSLContext()
+ssl_context.verify_mode = ssl.CERT_REQUIRED
+ssl_context.load_verify_locations(certifi.where())
 
 
 class ProgressReport:
@@ -84,7 +91,10 @@ def download(
     timeout=5 * 60,
     headers=None,
 ) -> Tuple[Optional[int], str]:
-    return URLRequest(url, headers, timeout).download(basepath, filename, fn_prio, overwrite, suffix, report)
+
+    return URLRequest(url, headers, timeout, ssl_context).download(
+        basepath, filename, fn_prio, overwrite, suffix, report
+    )
 
 
 def download_handle(
@@ -135,7 +145,7 @@ def download_handle(
             logging.error("HTTP 404 error for <%s>", url)
         else:
             logging.exception("Downloading <%s> failed.", url)
-    except URLError as e:
+    except (URLError, InvalidURL) as e:
         localname = None
         length = None
         status = e
@@ -144,7 +154,7 @@ def download_handle(
         localname = None
         length = None
         status = e
-        logging.exception("Download failed")
+        logging.exception("Downloading <%s> failed.", url)
 
     return (setter, status, localname, length)  # put some info there to make sure failed downloads can be repeated
 
@@ -279,7 +289,15 @@ class Catcher(object):
     def get_feed(self, url):
         # type: (str, ) -> Tuple[str, FeedParserDict]
 
-        feed = feedparser.parse(url)
+        r = URLRequest(url, context=ssl_context)
+        data = BytesIO(r.load())
+        feed = feedparser.parse(
+            data,
+            response_headers={
+                "Content-Location": url,
+                "content-type": r.headers["content-type"],
+            },
+        )
 
         if feed.bozo:
             logging.error("Feed mal-formed <%s>: %s", url, feed.bozo_exception)
