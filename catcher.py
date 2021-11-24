@@ -10,6 +10,7 @@ import sys
 import time
 from datetime import timedelta
 from functools import partial
+from http.client import InvalidURL
 from io import BytesIO
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
