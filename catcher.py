@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import concurrent.futures
 import email.utils
 import logging
@@ -13,7 +15,7 @@ from functools import partial
 from http.client import InvalidURL
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
+from typing import IO, TYPE_CHECKING, Callable, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 
 import certifi
@@ -84,14 +86,14 @@ class DownloadTask:
 def download(
     url: str,
     basepath: str,
-    filename: Optional[str] = None,
+    filename: str | None = None,
     fn_prio=None,
     overwrite: bool = False,
     suffix=".partial",
     report=None,
     timeout=5 * 60,
     headers=None,
-) -> Tuple[Optional[int], str]:
+) -> tuple[int | None, str]:
 
     return URLRequest(url, headers, timeout, ssl_context).download(
         basepath, filename, fn_prio, overwrite, suffix, report
@@ -103,7 +105,7 @@ def download_handle(
     setter: Callable,
     url: str,
     basepath: str,
-    filename: Optional[str],
+    filename: str | None,
     fn_prio,
     overwrite: bool,
     expected_size=None,
@@ -111,8 +113,8 @@ def download_handle(
     headers=None,
 ):
 
-    localname: Optional[str]
-    status: Optional[Exception]
+    localname: str | None
+    status: Exception | None
 
     try:
         (length, localname) = download(
@@ -171,7 +173,7 @@ class InvalidFeed(Exception):
 durationp = re.compile(r"(?:([0-9]{1,2}):)?([0-9]{1,2}):([0-9]{1,2})")
 
 
-def parse_itunes_duration(itunes_duration: Optional[str]) -> Optional[timedelta]:
+def parse_itunes_duration(itunes_duration: str | None) -> timedelta | None:
     if itunes_duration is None:
         return None
 
@@ -191,7 +193,7 @@ def parse_itunes_duration(itunes_duration: Optional[str]) -> Optional[timedelta]
         return timedelta(seconds=sec)
 
 
-class Catcher(object):
+class Catcher:
 
     FILENAME_CONFIG = "config.json"
     FILENAME_CASTS = "casts.json"
@@ -359,7 +361,7 @@ class Catcher(object):
         self.save_roaming()
         self.save_local()
 
-    def is_name_collision_add(self, cast_uid_new_safe: str) -> Optional[str]:
+    def is_name_collision_add(self, cast_uid_new_safe: str) -> str | None:
 
         for cast_uid in self.casts:
             if cast_uid_new_safe == safe_filename(cast_uid, "_"):
@@ -367,7 +369,7 @@ class Catcher(object):
 
         return None
 
-    def is_name_collision_rename(self, cast_uid_new_safe: str, cast_uid_old: str) -> Optional[str]:
+    def is_name_collision_rename(self, cast_uid_new_safe: str, cast_uid_old: str) -> str | None:
 
         for cast_uid in self.casts:
             if cast_uid_old != cast_uid:
@@ -407,7 +409,7 @@ class Catcher(object):
         self.casts[cast_uid_new] = self.casts.pop(cast_uid_old)
         self.db[cast_uid_new] = self.db.pop(cast_uid_old)
 
-    def remove_episode(self, cast_uid: str, episode_uid: str, file: bool = False) -> Optional[str]:
+    def remove_episode(self, cast_uid: str, episode_uid: str, file: bool = False) -> str | None:
 
         if file:
             raise RuntimeError("Deleting files not yet implemented")
@@ -477,7 +479,7 @@ class Catcher(object):
         logging.debug("Refreshing all feeds")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            futures: Dict[concurrent.futures.Future, str] = {}
+            futures: dict[concurrent.futures.Future, str] = {}
             for cast_uid, cast in self.casts.items():
                 future = executor.submit(
                     retry, partial(self.get_feed, cast["url"]), 10, (URLError,), attempts=2, multiplier=1.5

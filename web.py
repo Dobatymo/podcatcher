@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 from argparse import ArgumentParser
@@ -62,7 +64,7 @@ app.url_map.converters["binary"] = Base64Converter
 
 @app.errorhandler(404)
 def page_not_found(e):
-    logging.info("404: {}".format(request.url))
+    logging.info(f"404: {request.url}")
     return ("Not Found", 404)
 
 
@@ -168,7 +170,7 @@ def massedit():
 def removeepisode(cast_uid, episode_uid):
     localname = c.remove_episode(cast_uid, episode_uid)
     if localname:
-        flash("Removed episode: {}/{}".format(cast_uid, localname), "info")
+        flash(f"Removed episode: {cast_uid}/{localname}", "info")
     else:
         flash("Invalid episode", "error")
     return redirect_to_cast()
@@ -252,14 +254,14 @@ def addcast():
     if not c.add_feed(url, title, feed):
         flash("Directory exists already", "warning")
     c.save_local()
-    flash("Added {}".format(title), "info")
+    flash(f"Added {title}", "info")
     return redirect(url_for("casts"))
 
 
 @app.route("/removecast/<binary:cast_uid>", methods=["GET"])
 def removecast(cast_uid):
     c.remove_cast(cast_uid)
-    flash("Deleted {}".format(cast_uid), "info")
+    flash(f"Deleted {cast_uid}", "info")
     return redirect(url_for("casts"))
 
 
@@ -372,7 +374,7 @@ def youtube_to_feed(format, url):
         feed = yt.get_feed(url)
     except ValueError:
         logging.exception("Invalid playlist")
-        return ("Invalid playlist url: {}".format(url), 400)
+        return (f"Invalid playlist url: {url}", 400)
     yt.save_cache()
 
     format_str = formats[format][0]

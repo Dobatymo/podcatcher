@@ -1,4 +1,4 @@
-from __future__ import generator_stop
+from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
