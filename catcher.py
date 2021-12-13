@@ -7,6 +7,7 @@ import mimetypes
 import os
 import os.path
 import re
+import socket
 import ssl
 import sys
 import time
@@ -47,6 +48,9 @@ None (HTTP Error 404: Media File not found)
 
 DEFAULT_NETWORK_TIMEOUT = 60
 DEFAULT_CONCURRENT_DOWNLOADS = 2
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36"
+)
 
 ssl_context = ssl.SSLContext()
 ssl_context.verify_mode = ssl.CERT_REQUIRED
@@ -207,7 +211,7 @@ class Catcher:
         self.load_config()
 
         self.timeout = self.config.get("network-timeout", DEFAULT_NETWORK_TIMEOUT)
-        self.user_agent = self.config["user-agent"]
+        self.user_agent = self.config.get("user-agent", DEFAULT_USER_AGENT)
         self.casts_dir = Path(self.config["casts-directory"])
         self.interval = self.config["refresh-interval"]  # seconds, unused so far
         self.concurrent_downloads = self.config.get("concurrent-downloads", DEFAULT_CONCURRENT_DOWNLOADS)
@@ -482,7 +486,12 @@ class Catcher:
             futures: dict[concurrent.futures.Future, str] = {}
             for cast_uid, cast in self.casts.items():
                 future = executor.submit(
-                    retry, partial(self.get_feed, cast["url"]), 10, (URLError,), attempts=2, multiplier=1.5
+                    retry,
+                    partial(self.get_feed, cast["url"]),
+                    10,
+                    (ConnectionError, URLError, socket.timeout),
+                    attempts=2,
+                    multiplier=1.5,
                 )
                 futures[future] = cast_uid
 
@@ -492,7 +501,7 @@ class Catcher:
                 try:
                     _, feed = future.result()
                     self.update_feed(cast_uid, feed)
-                except URLError as e:
+                except (ConnectionError, URLError, socket.timeout) as e:
                     logging.warning("Could not update %s <%s>: %s", cast_uid, cast["url"], e)
                 except InvalidFeed as e:
                     logging.warning("Invalid feed %s <%s>: %s", cast_uid, cast["url"], e)
