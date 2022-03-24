@@ -52,9 +52,7 @@ DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36"
 )
 
-ssl_context = ssl.SSLContext()
-ssl_context.verify_mode = ssl.CERT_REQUIRED
-ssl_context.load_verify_locations(certifi.where())
+ssl_context = ssl.create_default_context(cadata=certifi.contents())
 
 
 class ProgressReport:
@@ -65,10 +63,11 @@ class ProgressReport:
         self.start = time.time()
 
     def __call__(self, done, total):
+        percent = done * 100 / total
+        time_diff = time.time() - self.start
+        total_mb = total / 1024 / 1024
         print(
-            "Downloaded {:05.2f}% in {:.0f}s ({:05.2f}mb)".format(
-                done * 100 / total, time.time() - self.start, total / 1024 / 1024
-            ),
+            f"Downloaded {percent:05.2f}% in {time_diff:.0f}s ({total_mb:05.2f}mb)",
             end="\r",
             file=self.file,
         )
@@ -320,7 +319,7 @@ class Catcher:
         try:
             feed = self.casts[cast_uid]
         except KeyError:
-            raise ValueError(f"Feed {cast_uid} doesn't exist.")
+            raise ValueError(f"Feed {cast_uid} doesn't exist.") from None
 
         feed["url"] = url
 
@@ -489,7 +488,7 @@ class Catcher:
                     retry,
                     partial(self.get_feed, cast["url"]),
                     10,
-                    (ConnectionError, URLError, socket.timeout),
+                    (ConnectionError, URLError, socket.timeout, ContentInvalidLength),
                     attempts=2,
                     multiplier=1.5,
                 )
@@ -501,7 +500,7 @@ class Catcher:
                 try:
                     _, feed = future.result()
                     self.update_feed(cast_uid, feed)
-                except (ConnectionError, URLError, socket.timeout) as e:
+                except (ConnectionError, URLError, socket.timeout, ContentInvalidLength) as e:
                     logging.warning("Could not update %s <%s>: %s", cast_uid, cast["url"], e)
                 except InvalidFeed as e:
                     logging.warning("Invalid feed %s <%s>: %s", cast_uid, cast["url"], e)
