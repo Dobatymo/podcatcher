@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import concurrent.futures
 import email.utils
 import logging
@@ -11,16 +9,17 @@ import socket
 import ssl
 import sys
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import partial
 from http.client import InvalidURL
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Callable, List, Optional, Tuple
+from typing import IO, Callable, Dict, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 
 import certifi
 import feedparser
+from feedparser import FeedParserDict
 from genutility.concurrency import ProgressThreadPool
 from genutility.datetime import now
 from genutility.filesystem import safe_filename
@@ -29,11 +28,6 @@ from genutility.http import ContentInvalidLength, URLRequest
 from genutility.iter import first_not_none
 from genutility.json import BuiltinRoundtripDecoder, BuiltinRoundtripEncoder, read_json, write_json
 from genutility.string import toint
-
-if TYPE_CHECKING:
-    from datetime import datetime
-
-    from feedparser import FeedParserDict
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +50,7 @@ ssl_context = ssl.create_default_context(cadata=certifi.contents())
 
 
 class ProgressReport:
-    def __init__(self, file=sys.stdout):
-        # type: (IO[str], ) -> None
+    def __init__(self, file: IO[str] = sys.stdout) -> None:
 
         self.file = file
         self.start = time.time()
@@ -89,14 +82,14 @@ class DownloadTask:
 def download(
     url: str,
     basepath: str,
-    filename: str | None = None,
+    filename: Optional[str] = None,
     fn_prio=None,
     overwrite: bool = False,
     suffix=".partial",
     report=None,
     timeout=5 * 60,
     headers=None,
-) -> tuple[int | None, str]:
+) -> Tuple[Optional[int], str]:
 
     return URLRequest(url, headers, timeout, ssl_context).download(
         basepath, filename, fn_prio, overwrite, suffix, report
@@ -108,7 +101,7 @@ def download_handle(
     setter: Callable,
     url: str,
     basepath: str,
-    filename: str | None,
+    filename: Optional[str],
     fn_prio,
     overwrite: bool,
     expected_size=None,
@@ -116,8 +109,8 @@ def download_handle(
     headers=None,
 ):
 
-    localname: str | None
-    status: Exception | None
+    localname: Optional[str]
+    status: Optional[Exception]
 
     try:
         (length, localname) = download(
@@ -176,7 +169,7 @@ class InvalidFeed(Exception):
 durationp = re.compile(r"(?:([0-9]{1,2}):)?([0-9]{1,2}):([0-9]{1,2})")
 
 
-def parse_itunes_duration(itunes_duration: str | None) -> timedelta | None:
+def parse_itunes_duration(itunes_duration: Optional[str]) -> Optional[timedelta]:
     if itunes_duration is None:
         return None
 
@@ -202,8 +195,7 @@ class Catcher:
     FILENAME_CASTS = "casts.json"
     FILENAME_FEEDS = "feeds.db.json"
 
-    def __init__(self, appdatadir):
-        # type: (Path, ) -> None
+    def __init__(self, appdatadir: Path) -> None:
 
         self.appdatadir = appdatadir
 
@@ -222,25 +214,21 @@ class Catcher:
         self.load_roaming()
         # self.load_local()
 
-    def load_config(self):
-        # type: () -> None
+    def load_config(self) -> None:
 
         self.config = read_json(self.appdatadir / self.FILENAME_CONFIG, cls=BuiltinRoundtripDecoder)
 
-    def save_config(self):
-        # type: () -> None
+    def save_config(self) -> None:
 
         write_json(
             self.config, self.appdatadir / self.FILENAME_CONFIG, indent="\t", cls=BuiltinRoundtripEncoder, safe=True
         )
 
-    def load_roaming(self):
-        # type: () -> None
+    def load_roaming(self) -> None:
 
         self.casts = read_json(self.appdatadir / self.FILENAME_CASTS, cls=BuiltinRoundtripDecoder)
 
-    def save_roaming(self):
-        # type: () -> None
+    def save_roaming(self) -> None:
 
         if len(self.casts) != len(self.db):
             logging.warning("Inconsistent file information. Casts: %s, DB: %s", len(self.casts), len(self.db))
@@ -249,21 +237,18 @@ class Catcher:
             self.casts, self.appdatadir / self.FILENAME_CASTS, indent="\t", cls=BuiltinRoundtripEncoder, safe=True
         )
 
-    def load_local(self):
-        # type: () -> None
+    def load_local(self) -> None:
 
         self.db = read_json(self.appdatadir / self.FILENAME_FEEDS, cls=BuiltinRoundtripDecoder)
 
-    def save_local(self):
-        # type: () -> None
+    def save_local(self) -> None:
 
         if len(self.casts) != len(self.db):
             logging.warning("Inconsistent file information. Casts: %s, DB: %s", len(self.casts), len(self.db))
 
         write_json(self.db, self.appdatadir / self.FILENAME_FEEDS, indent="\t", cls=BuiltinRoundtripEncoder, safe=True)
 
-    def episode(self, cast_uid, episode_uid):
-        # type: (str, str) -> Optional[dict]
+    def episode(self, cast_uid: str, episode_uid: str) -> Optional[dict]:
 
         # if "|" in cast_uid or "|" in episode_uid:
         # 	raise ValueError("arguments cannot contain '|'")
@@ -273,8 +258,7 @@ class Catcher:
             return cast["items"].get(episode_uid)
         return None
 
-    def listenedto(self, cast_uid, episode_uid, date=None):
-        # type: (str, str, Optional[datetime]) -> datetime
+    def listenedto(self, cast_uid: str, episode_uid: str, date: Optional[datetime] = None) -> datetime:
 
         if not date:
             date = now()
@@ -284,16 +268,14 @@ class Catcher:
         info["listened"] = date
         return date
 
-    def forget_episode(self, cast_uid, episode_uid):
-        # type: (str, str) -> datetime
+    def forget_episode(self, cast_uid: str, episode_uid: str) -> datetime:
 
         info = self.episode(cast_uid, episode_uid)
         if not info:
             raise KeyError((cast_uid, episode_uid))
         return info.pop("listened")
 
-    def get_feed(self, url):
-        # type: (str, ) -> Tuple[str, FeedParserDict]
+    def get_feed(self, url: str) -> Tuple[str, FeedParserDict]:
 
         r = URLRequest(url, context=ssl_context)
         data = BytesIO(r.load())
@@ -323,8 +305,7 @@ class Catcher:
 
         feed["url"] = url
 
-    def add_feed(self, url, cast_uid, feed):
-        # type: (str, str, FeedParserDict) -> bool
+    def add_feed(self, url: str, cast_uid: str, feed: FeedParserDict) -> bool:
 
         if not url or not cast_uid or not feed:
             raise ValueError("argument values cannot be empty")
@@ -364,7 +345,7 @@ class Catcher:
         self.save_roaming()
         self.save_local()
 
-    def is_name_collision_add(self, cast_uid_new_safe: str) -> str | None:
+    def is_name_collision_add(self, cast_uid_new_safe: str) -> Optional[str]:
 
         for cast_uid in self.casts:
             if cast_uid_new_safe == safe_filename(cast_uid, "_"):
@@ -372,7 +353,7 @@ class Catcher:
 
         return None
 
-    def is_name_collision_rename(self, cast_uid_new_safe: str, cast_uid_old: str) -> str | None:
+    def is_name_collision_rename(self, cast_uid_new_safe: str, cast_uid_old: str) -> Optional[str]:
 
         for cast_uid in self.casts:
             if cast_uid_old != cast_uid:
@@ -412,7 +393,7 @@ class Catcher:
         self.casts[cast_uid_new] = self.casts.pop(cast_uid_old)
         self.db[cast_uid_new] = self.db.pop(cast_uid_old)
 
-    def remove_episode(self, cast_uid: str, episode_uid: str, file: bool = False) -> str | None:
+    def remove_episode(self, cast_uid: str, episode_uid: str, file: bool = False) -> Optional[str]:
 
         if file:
             raise RuntimeError("Deleting files not yet implemented")
@@ -423,11 +404,10 @@ class Catcher:
 
         return ep.pop("localname", None)
 
-    def update_feed(self, cast_uid, feed):
-        # type: (str, FeedParserDict) -> None
+    def update_feed(self, cast_uid: str, feed: FeedParserDict) -> None:
 
         try:
-            pub = email.utils.parsedate_to_datetime(feed.feed.published)  # type: Optional[datetime]
+            pub: Optional[datetime] = email.utils.parsedate_to_datetime(feed.feed.published)
         except AttributeError:
             pub = None
 
@@ -447,7 +427,7 @@ class Catcher:
                 db_entry = self.db[cast_uid]["items"][episode_uid]
 
             try:
-                entry_pub = email.utils.parsedate_to_datetime(entry.published)  # type: Optional[datetime]
+                entry_pub: Optional[datetime] = email.utils.parsedate_to_datetime(entry.published)
             except AttributeError:
                 entry_pub = None
 
@@ -476,13 +456,13 @@ class Catcher:
             else:
                 raise InvalidFeed("Feed contains multiple enclosures")
 
-    def update_feeds(self):
-        # type: () -> None
+    def update_feeds(self) -> None:
+        feed: FeedParserDict
 
         logging.debug("Refreshing all feeds")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            futures: dict[concurrent.futures.Future, str] = {}
+            futures: Dict[concurrent.futures.Future, str] = {}
             for cast_uid, cast in self.casts.items():
                 future = executor.submit(
                     retry,
@@ -498,7 +478,7 @@ class Catcher:
                 cast_uid = futures[future]
                 cast = self.casts[cast_uid]
                 try:
-                    _, feed = future.result()
+                    _title, feed = future.result()
                     self.update_feed(cast_uid, feed)
                 except (ConnectionError, URLError, socket.timeout, ContentInvalidLength) as e:
                     logging.warning("Could not update %s <%s>: %s", cast_uid, cast["url"], e)
@@ -507,13 +487,11 @@ class Catcher:
 
         self.save_local()
 
-    def get_episode_uid(self, item):
-        # type: (dict, ) -> Optional[str]
+    def get_episode_uid(self, item: dict) -> Optional[str]:
 
         return first_not_none([item.get("guid"), item.get("link"), item.get("title"), item.get("description")])
 
-    def get_download_status(self):
-        # type: () -> Tuple[list, list, list, list]
+    def get_download_status(self) -> Tuple[list, list, list, list]:
 
         waiting = list(
             (url, basepath, filename, expected_size)
@@ -535,8 +513,9 @@ class Catcher:
         failed = self.dl.get_failed()
         return waiting, running, completed, failed
 
-    def download_item(self, cast_uid, episode_uid, force=False, overwrite=False):
-        # type: (str, str, bool, bool) -> Optional[dict]
+    def download_item(
+        self, cast_uid: str, episode_uid: str, force: bool = False, overwrite: bool = False
+    ) -> Optional[dict]:
 
         # changes self.db
 
@@ -580,6 +559,9 @@ class Catcher:
             logging.warning("No URL found for %s/%s", cast_uid, episode_uid)
             return None
 
+        # try to fix some common URL errors
+        url = url.replace(" ", "%20")
+
         self.dl.start(
             download_handle,
             setter,
@@ -617,8 +599,7 @@ class Catcher:
 
         return db_entry
 
-    def download_items(self, force=False, overwrite=False):
-        # type: (bool, bool) -> List[Tuple[str, str]]
+    def download_items(self, force: bool = False, overwrite: bool = False) -> List[Tuple[str, str]]:
 
         failed = list()
 

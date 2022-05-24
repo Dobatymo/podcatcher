@@ -5,3 +5,11 @@ line-length = 120
 profile = "black"
 src_paths = ["."]
 line_length = 120
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+	"line-too-long",
+	"too-many-public-methods",
+	"missing-function-docstring",
+	"too-many-instance-attributes",
+]

@@ -1,40 +1,33 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from datetime import datetime, timedelta
+from typing import Dict, Optional, Tuple
 
 import pafy
 from feedgen.feed import FeedGenerator
 from genutility.datetime import datetime_from_utc_timestamp, now
 from genutility.pickle import read_pickle, write_pickle
 
-if TYPE_CHECKING:
-    from datetime import datetime, timedelta
-
 
 class YoutubeToFeed:
 
     video_url = "https://www.youtube.com/watch?v={}"
 
-    def __init__(self):
-        # type: () -> None
+    def __init__(self) -> None:
 
         self.cachefile = "tmp/youtube-cache.p"
 
         try:
-            self.cache = read_pickle(self.cachefile)  # type: Dict[str, Tuple[datetime, FeedGenerator]]
+            self.cache: Dict[str, Tuple[datetime, FeedGenerator]] = read_pickle(self.cachefile)
             self.updated = False
         except FileNotFoundError:
             self.cache = dict()
             self.updated = True
 
-    def save_cache(self, force=False):
-        # type: (bool, ) -> None
+    def save_cache(self, force: bool = False) -> None:
 
         if self.updated or force:
             write_pickle(self.cache, self.cachefile)
 
-    def get_feed(self, playlist, max_age=None):
-        # type: (str, Optional[timedelta]) -> FeedGenerator
+    def get_feed(self, playlist: str, max_age: Optional[timedelta] = None) -> FeedGenerator:
 
         try:
             dt, feed = self.cache[playlist]
@@ -48,8 +41,7 @@ class YoutubeToFeed:
             self.updated = True
         return feed
 
-    def create_feed(self, playlist, start=None, end=None):
-        # type: (str, Optional[int], Optional[int]) -> FeedGenerator
+    def create_feed(self, playlist: str, start: Optional[int] = None, end: Optional[int] = None) -> FeedGenerator:
 
         """playlist must be a youtube playlist url"""
 

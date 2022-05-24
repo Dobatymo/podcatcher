@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 import os
 from argparse import ArgumentParser
@@ -63,19 +61,17 @@ app.url_map.converters["binary"] = Base64Converter
 
 
 @app.errorhandler(404)
-def page_not_found(e):
+def page_not_found(e) -> Tuple[str, int]:
     logging.info(f"404: {request.url}")
     return ("Not Found", 404)
 
 
-def is_downloaded(info):
-    # type: (dict, ) -> bool
+def is_downloaded(info: dict) -> bool:
 
     return info.get("localname") is not None
 
 
-def splitonce(string, delim):
-    # type: (str, str) -> Tuple[str, str]
+def splitonce(string: str, delim: str) -> Tuple[str, str]:
 
     a, b = string.split(delim)
     return a, b
