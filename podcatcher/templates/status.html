@@ -29,7 +29,7 @@
 	<li>{{ localname }}</li>
 	{% endfor %}
 <h2>Failed</h2>
-	{% for status, localname, length in failed %}
+	{% for status, (localname, length) in failed %}
 	<li>{{ localname }} ({{ status }})</li>
 	{% endfor %}
 

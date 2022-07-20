@@ -17,3 +17,34 @@ disable = [
 	"missing-function-docstring",
 	"too-many-instance-attributes",
 ]
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "podcatcher"
+authors = [{name = "Dobatymo"}]
+readme = "readme.md"
+classifiers = ["License :: OSI Approved :: ISC License (ISCL)"]
+dynamic = ["version", "description"]
+requires-python = "~=3.7"
+dependencies = [
+	"appdirs==1.4.4",
+	"feedgen==0.9.0",
+	"feedparser==6.0.10",
+	"flask==2.1.3",
+	"genutility[json,http,flask]==0.0.88",
+	"pafy==0.5.5",
+	"werkzeug==2.1.2",
+	"WTForms==3.0.1",
+	"youtube-dl==2021.12.17",
+]
+
+[project.urls]
+Documentation = "https://flit.readthedocs.io/en/latest/"
+Source = "https://github.com/Dobatymo/podcatcher"
+
+[project.scripts]
+podcatcher-cli = "podcatcher.cli:main"
+podcatcher-web = "podcatcher.web:main"

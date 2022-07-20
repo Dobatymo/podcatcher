@@ -1,9 +1,14 @@
+""" This is the CLI entrypoint to PodCatcher """
+
 import logging
 import time
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
+from genutility.args import is_dir
 from genutility.stdio import print_terminal_progress_line
 
-from catcher import Catcher
+from .catcher import Catcher
+from .utils import DEFAULT_APPDATA_DIR
 
 
 def wait_for_downloads(c: Catcher, poll: float = 1.0) -> None:
@@ -31,26 +36,10 @@ def wait_for_downloads(c: Catcher, poll: float = 1.0) -> None:
         time.sleep(poll)
 
 
-if __name__ == "__main__":
+def main():
+    ACTIONS = ["download", "add-feed", "remove-feed", "update-feed", "update-feeds", "update-feed-url"]
 
-    from argparse import ArgumentParser
-
-    from genutility.args import is_dir
-
-    from utils import DEFAULT_APPDATA_DIR
-
-    APP_NAME = "podcatcher"
-    APP_AUTHOR = "Dobatymo"
-    ACTIONS = [
-        "download",
-        "add-feed",
-        "remove-feed",
-        "update-feed",
-        "update-feeds",
-        "update-feed-url",
-    ]
-
-    parser = ArgumentParser(description="PodCatcher")
+    parser = ArgumentParser(description="PodCatcher", formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         "action",
         choices=ACTIONS,
@@ -107,3 +96,8 @@ if __name__ == "__main__":
         if not args.url or not args.title:
             parser.error("update-feed-url requires --url and --title")
         c.update_feed_url(args.title, args.url)
+
+
+if __name__ == "__main__":
+
+    main()

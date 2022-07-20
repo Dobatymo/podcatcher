@@ -1,5 +1,6 @@
 appdata-*/
 web-*.bat
+issues.md
 
 *.bak
 *.xml
@@ -7,13 +8,11 @@ tmp/
 
 # python stuff
 __pycache__/
+.mypy_cache/
 *.py[cod]
 *.egg-info
 build/
 dist/
-
-# python lib stuff
-.mypy_cache/
 
 # Translations
 *.mo

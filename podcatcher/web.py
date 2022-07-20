@@ -1,6 +1,8 @@
+""" This is the Web entrypoint to PodCatcher """
+
 import logging
 import os
-from argparse import ArgumentParser
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from typing import Tuple
 
 from flask import Flask, Response, abort, flash, make_response, redirect, render_template, request, send_file, url_for
@@ -8,8 +10,9 @@ from genutility.args import is_dir
 from genutility.flask import Base64Converter
 from wtforms import Form, IntegerField, StringField, validators
 
-from catcher import Catcher, InvalidFeed
-from streaming import YoutubeToFeed
+from .catcher import Catcher, InvalidFeed
+from .streaming import YoutubeToFeed
+from .utils import DEFAULT_APPDATA_DIR
 
 """
 needs
@@ -36,9 +39,7 @@ item id order: guid, link, title, description, pubDate
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-from utils import DEFAULT_APPDATA_DIR
-
-parser = ArgumentParser()
+parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
 parser.add_argument("--appdata-dir", type=is_dir, default=DEFAULT_APPDATA_DIR, help="Path to appdata directory")
 parser.add_argument("--quiet", action="store_true", help="don't show debug output")
 args = parser.parse_args()
@@ -56,7 +57,7 @@ app.url_map.converters["binary"] = Base64Converter
 
 
 @app.errorhandler(404)
-def page_not_found(e) -> Tuple[str, int]:
+def page_not_found(e: Exception) -> Tuple[str, int]:
     logging.info(f"404: {request.url}")
     return ("Not Found", 404)
 
@@ -121,6 +122,7 @@ def casts(cast_uid=None):
 
 @app.route("/save", methods=["GET"])
 def save():
+    flash("Podcasts database saved")
     c.save_roaming()
     c.save_local()
     return redirect(url_for("casts"))
@@ -194,6 +196,7 @@ def playepisode(cast_uid, episode_uid):
                 last_modified=info["date"],
             )
         except FileNotFoundError:
+            logging.warning("Tried to play file: %s", filename)
             abort(404)
         response = make_response(sf)
         response.headers["Content-Disposition"] = 'inline; filename="{}"'.format(
@@ -335,7 +338,6 @@ def config():
             c.save_config()
     else:
         config = {k.replace("-", "_"): v for k, v in c.config.items()}
-        print(config)
         form = ConfigForm(**config)
     return render_template("config.html", form=form)
 
@@ -370,6 +372,10 @@ def youtube_to_feed(format, url):
     return Response(getattr(feed, format_str)(pretty=True), mimetype=formats[format][1])
 
 
+def main():
+    app.run(host="127.0.0.1", port=8000, debug=True, threaded=True, use_reloader=False)  # nosec
+
+
 if __name__ == "__main__":
 
-    app.run(host="127.0.0.1", port=8000, debug=True, threaded=True, use_reloader=False)  # nosec
+    main()

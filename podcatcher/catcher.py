@@ -21,7 +21,7 @@ import certifi
 import feedparser
 from feedparser import FeedParserDict
 from genutility.concurrency import ProgressThreadPool
-from genutility.datetime import now
+from genutility.datetime import naive_to_aware, now
 from genutility.filesystem import safe_filename
 from genutility.func import retry
 from genutility.http import ContentInvalidLength, URLRequest
@@ -425,7 +425,7 @@ class Catcher:
         """Modifies `self.db`, calling function should take care of persisting it."""
 
         try:
-            pub: Optional[datetime] = email.utils.parsedate_to_datetime(feed.feed.published)
+            pub: Optional[datetime] = naive_to_aware(email.utils.parsedate_to_datetime(feed.feed.published))
         except AttributeError:
             pub = None
 
@@ -445,7 +445,7 @@ class Catcher:
                 db_entry = self.db[cast_uid]["items"][episode_uid]
 
             try:
-                entry_pub: Optional[datetime] = email.utils.parsedate_to_datetime(entry.published)
+                entry_pub: Optional[datetime] = naive_to_aware(email.utils.parsedate_to_datetime(entry.published))
             except AttributeError:
                 entry_pub = None
 
@@ -484,7 +484,7 @@ class Catcher:
             for cast_uid, cast in self.casts.items():
                 future = executor.submit(
                     retry,
-                    partial(self.get_feed, cast["url"]),
+                    partial(self.get_feed, cast["url"]),  # type: ignore[arg-type]
                     10,
                     (ConnectionError, URLError, socket.timeout, ContentInvalidLength),
                     attempts=2,
@@ -496,7 +496,7 @@ class Catcher:
                 cast_uid = futures[future]
                 cast = self.casts[cast_uid]
                 try:
-                    _title, feed = future.result()
+                    _title, feed = future.result()  # type: ignore[misc]
                     self.update_feed(cast_uid, feed)
                 except (ConnectionError, URLError, socket.timeout, ContentInvalidLength) as e:
                     logging.warning("Could not update %s <%s>: %s", cast_uid, cast["url"], e)
@@ -574,7 +574,7 @@ class Catcher:
 
         def setter(ret: Tuple[str, int]) -> None:
             localname, length = ret
-            db_entry["localname"] = localname
+            db_entry["localname"] = localname  # type: ignore[index]
 
         url = db_entry.get("href")
 
