@@ -2,7 +2,7 @@ appdirs==1.4.4
 feedgen==0.9.0
 feedparser==6.0.10
 flask==2.0.2
-genutility[json,http,flask]==0.0.84
+genutility[json,http,flask]==0.0.88
 pafy==0.5.5
 werkzeug==2.0.2
 WTForms==3.0.0

@@ -6,7 +6,7 @@ from genutility.stdio import print_terminal_progress_line
 from catcher import Catcher
 
 
-def wait_for_downloads(c: Catcher) -> None:
+def wait_for_downloads(c: Catcher, poll: float = 1.0) -> None:
     while True:
         queued, active, completed, failed = c.get_download_status()
         if active:
@@ -28,7 +28,7 @@ def wait_for_downloads(c: Catcher) -> None:
 
             break
 
-        time.sleep(1)
+        time.sleep(poll)
 
 
 if __name__ == "__main__":
@@ -41,20 +41,19 @@ if __name__ == "__main__":
 
     APP_NAME = "podcatcher"
     APP_AUTHOR = "Dobatymo"
+    ACTIONS = [
+        "download",
+        "add-feed",
+        "remove-feed",
+        "update-feed",
+        "update-feeds",
+        "update-feed-url",
+    ]
 
     parser = ArgumentParser(description="PodCatcher")
     parser.add_argument(
         "action",
-        choices=[
-            "download",
-            "add-feed",
-            "remove-feed",
-            "update-feed",
-            "update-feeds",
-            "update-feed-url",
-            "load",
-            "save",
-        ],
+        choices=ACTIONS,
     )
     parser.add_argument("--url", help="Feed URL")
     parser.add_argument("--title", help="Feed title")
@@ -68,13 +67,7 @@ if __name__ == "__main__":
         logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s", level=logging.INFO)
 
     c = Catcher(args.appdata_dir)
-    try:
-        c.load_local()
-        feeds_updated = False
-    except FileNotFoundError:
-        c.update_feeds()
-        c.save_local()
-        feeds_updated = True
+    feeds_updated = c.load_feeds()
 
     if args.action == "download":
         if not feeds_updated:
@@ -82,6 +75,7 @@ if __name__ == "__main__":
             feeds_updated = True
         c.download_items()
         wait_for_downloads(c)
+        c.save_local()
 
     elif args.action == "add-feed":
         if not args.url:
@@ -113,9 +107,3 @@ if __name__ == "__main__":
         if not args.url or not args.title:
             parser.error("update-feed-url requires --url and --title")
         c.update_feed_url(args.title, args.url)
-
-    elif args.action == "load":
-        pass
-
-    elif args.action == "save":
-        c.save_local()

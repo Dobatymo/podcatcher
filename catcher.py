@@ -14,7 +14,7 @@ from functools import partial
 from http.client import InvalidURL
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Callable, Dict, List, Optional, Tuple
+from typing import IO, Any, Callable, Dict, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 
 import certifi
@@ -107,9 +107,10 @@ def download_handle(
     expected_size=None,
     timeout=None,
     headers=None,
-):
+) -> Tuple[Callable, Optional[Exception], Any]:
 
     localname: Optional[str]
+    length: Optional[int]
     status: Optional[Exception]
 
     try:
@@ -155,7 +156,7 @@ def download_handle(
         status = e
         logging.exception("Downloading <%s> failed.", url)
 
-    return (setter, status, localname, length)  # put some info there to make sure failed downloads can be repeated
+    return setter, status, (localname, length)  # put some info there to make sure failed downloads can be repeated
 
 
 class NoTitleError(Exception):
@@ -196,6 +197,8 @@ class Catcher:
     FILENAME_FEEDS = "feeds.db.json"
 
     def __init__(self, appdatadir: Path) -> None:
+
+        """Call `Catcher.load_feeds()` afterwards to load feeds from cache or download if not available."""
 
         self.appdatadir = appdatadir
 
@@ -247,6 +250,16 @@ class Catcher:
             logging.warning("Inconsistent file information. Casts: %s, DB: %s", len(self.casts), len(self.db))
 
         write_json(self.db, self.appdatadir / self.FILENAME_FEEDS, indent="\t", cls=BuiltinRoundtripEncoder, safe=True)
+
+    def load_feeds(self) -> bool:
+        """Returns `True` if feeds where refreshed and `False` if loaded from cache."""
+
+        try:
+            self.load_local()
+            return False
+        except FileNotFoundError:
+            self.update_feeds()
+            return True
 
     def episode(self, cast_uid: str, episode_uid: str) -> Optional[dict]:
 
@@ -393,6 +406,9 @@ class Catcher:
         self.casts[cast_uid_new] = self.casts.pop(cast_uid_old)
         self.db[cast_uid_new] = self.db.pop(cast_uid_old)
 
+        self.save_roaming()
+        self.save_local()
+
     def remove_episode(self, cast_uid: str, episode_uid: str, file: bool = False) -> Optional[str]:
 
         if file:
@@ -405,6 +421,8 @@ class Catcher:
         return ep.pop("localname", None)
 
     def update_feed(self, cast_uid: str, feed: FeedParserDict) -> None:
+
+        """Modifies `self.db`, calling function should take care of persisting it."""
 
         try:
             pub: Optional[datetime] = email.utils.parsedate_to_datetime(feed.feed.published)
@@ -517,13 +535,17 @@ class Catcher:
         self, cast_uid: str, episode_uid: str, force: bool = False, overwrite: bool = False
     ) -> Optional[dict]:
 
-        # changes self.db
+        """A completed download changes `self.db`, so Catcher.save_local()` should be called afterwards."""
 
         fn_prio = self.casts[cast_uid].get("filename", None)
         if fn_prio:
             fn_prio = (fn_prio,)
         else:
             fn_prio = None
+
+        if not self.casts_dir.is_dir():
+            logging.warning("Output directory <%s> doesn't exist", self.casts_dir)
+            return None
 
         dirpath = self.casts_dir / safe_filename(cast_uid, "_")  # make sure still unique
 
@@ -550,7 +572,8 @@ class Catcher:
             else:
                 filename = None
 
-        def setter(localname):
+        def setter(ret: Tuple[str, int]) -> None:
+            localname, length = ret
             db_entry["localname"] = localname
 
         url = db_entry.get("href")
@@ -575,38 +598,17 @@ class Catcher:
             headers=self.headers,
         )
 
-        """
-		try:
-			report = ProgressReport()
-			(length, localname) = download(db_entry.get("href"), dirpath, filename=filename, fn_prio=fn_prio, overwrite=overwrite, report=report, timeout=self.timeout, headers=self.headers) # download with thread pool
-
-			db_entry["localname"] = localname
-			if db_entry.get("length") and db_entry.get("length") != length:
-				logging.error("Download succeeded, but size %s doesn't match enclosure length %s", length, db_entry.get("length"))
-
-		except FileExistsError as e:
-			db_entry["localname"] = os.path.basename(e.filename)
-			if db_entry.get("length") and db_entry.get("length") != os.stat(e.filename).st_size: # can raise not found or sth again
-				logging.warning("%s exists, but size %s doesn't match enclosure length %s", e.filename, os.stat(e.filename).st_size, db_entry.get("length"))
-
-		except ContentInvalidLength as e:
-			pass
-		except HTTPError:
-			pass
-		except Exception as e:
-			logging.exception("Download failed")
-		"""
-
         return db_entry
 
     def download_items(self, force: bool = False, overwrite: bool = False) -> List[Tuple[str, str]]:
 
-        failed = list()
+        """Asynchronously downloads all items. Returns a list of items which were not queued for download."""
+
+        ignored: List[Tuple[str, str]] = []
 
         for cast_uid, feed in self.db.items():
             for episode_uid in feed["items"]:
                 if not self.download_item(cast_uid, episode_uid, force, overwrite):
-                    failed.append((cast_uid, episode_uid))
+                    ignored.append((cast_uid, episode_uid))
 
-        self.save_local()
-        return failed
+        return ignored

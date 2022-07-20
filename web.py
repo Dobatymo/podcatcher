@@ -49,13 +49,8 @@ else:
     logging.basicConfig(level=logging.DEBUG)
 
 c = Catcher(args.appdata_dir)
+c.load_feeds()
 yt = YoutubeToFeed()
-
-try:
-    c.load_local()
-except FileNotFoundError:
-    c.update_feeds()
-    c.save_local()
 
 app.url_map.converters["binary"] = Base64Converter
 
@@ -284,14 +279,12 @@ def renamecast(cast_uid):
 @app.route("/action/refresh", methods=["GET"])
 def refresh():
     c.update_feeds()
-    c.save_local()
     return redirect(url_for("casts"))
 
 
 @app.route("/refresher", methods=["GET"])
 def refresher():
     c.update_feeds()
-    c.save_local()
     return render_template("refresher.html", interval=c.interval)
 
 
@@ -378,9 +371,5 @@ def youtube_to_feed(format, url):
 
 
 if __name__ == "__main__":
-
-    # import atexit
-
-    # atexit.register(save_data)
 
     app.run(host="127.0.0.1", port=8000, debug=True, threaded=True, use_reloader=False)  # nosec
