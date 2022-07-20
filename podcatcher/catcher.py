@@ -109,15 +109,14 @@ def download_handle(
     headers=None,
 ) -> Tuple[Callable, Optional[Exception], Any]:
 
-    localname: Optional[str]
-    length: Optional[int]
-    status: Optional[Exception]
+    localname: Optional[str] = None
+    length: Optional[int] = None
+    status: Optional[Exception] = None
 
     try:
-        (length, localname) = download(
+        length, localname = download(
             url, basepath, filename, fn_prio, overwrite, report=report, timeout=timeout, headers=headers
         )
-        status = None
 
         if expected_size and expected_size != length:
             logging.error("Download succeeded, but size %s doesn't match enclosure length %s", length, expected_size)
@@ -125,7 +124,6 @@ def download_handle(
     except FileExistsError as e:
         localname = os.path.basename(e.filename)
         length = os.stat(e.filename).st_size  # can raise not found or sth. again
-        status = None
 
         if expected_size and expected_size != length:
             logging.warning(
@@ -138,25 +136,19 @@ def download_handle(
         status = e
         logging.warning("%s might be incomplete. Transferred %d/%d", localname, e.args[1], e.args[2])
     except HTTPError as e:
-        localname = None
-        length = None
         status = e
         if e.code == 404:
             logging.error("HTTP 404 error for <%s>", url)
         else:
-            logging.exception("Downloading <%s> failed.", url)
+            logging.exception("Downloading <%s> failed: HTTP error", url)
     except (URLError, InvalidURL) as e:
-        localname = None
-        length = None
         status = e
-        logging.exception("Downloading <%s> failed.", url)
+        logging.exception("Downloading <%s> failed: Invalid URL", url)
     except Exception as e:
-        localname = None
-        length = None
         status = e
         logging.exception("Downloading <%s> failed.", url)
 
-    return setter, status, (localname, length)  # put some info there to make sure failed downloads can be repeated
+    return setter, status, (url, localname, length)  # put some info there to make sure failed downloads can be repeated
 
 
 class NoTitleError(Exception):
@@ -509,7 +501,7 @@ class Catcher:
 
         return first_not_none([item.get("guid"), item.get("link"), item.get("title"), item.get("description")])
 
-    def get_download_status(self) -> Tuple[list, list, list, list]:
+    def get_download_status(self) -> Tuple[list, list, list, List[Tuple[Exception, Any]]]:
 
         waiting = list(
             (url, basepath, filename, expected_size)
@@ -572,8 +564,8 @@ class Catcher:
             else:
                 filename = None
 
-        def setter(ret: Tuple[str, int]) -> None:
-            localname, length = ret
+        def setter(ret: Tuple[str, str, int]) -> None:
+            url, localname, length = ret
             db_entry["localname"] = localname  # type: ignore[index]
 
         url = db_entry.get("href")

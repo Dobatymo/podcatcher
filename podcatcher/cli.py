@@ -25,11 +25,11 @@ def wait_for_downloads(c: Catcher, poll: float = 1.0) -> None:
 
         if not queued and not active:
             print("completed")
-            for localname, length in completed:
+            for url, localname, length in completed:
                 print("DONE", localname, length)
             print("failed")
-            for status, localname, length in failed:
-                print("FAILED", localname, length, status)
+            for status, (url, localname, length) in failed:
+                print("FAILED", url, status)
 
             break
 

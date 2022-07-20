@@ -25,12 +25,12 @@
 	<li>{{ url }} is {{ done/total*100}}% done</li>
 	{% endfor %}
 <h2>Completed</h2>
-	{% for localname, length in completed %}
+	{% for url, localname, length in completed %}
 	<li>{{ localname }}</li>
 	{% endfor %}
 <h2>Failed</h2>
-	{% for status, (localname, length) in failed %}
-	<li>{{ localname }} ({{ status }})</li>
+	{% for status, (url, localname, length) in failed %}
+	<li>{{ url }} ({{ status }})</li>
 	{% endfor %}
 
 </body>
