@@ -8,11 +8,9 @@ from genutility.pickle import read_pickle, write_pickle
 
 
 class YoutubeToFeed:
-
     video_url = "https://www.youtube.com/watch?v={}"
 
     def __init__(self) -> None:
-
         self.cachefile = "tmp/youtube-cache.p"
 
         try:
@@ -23,12 +21,10 @@ class YoutubeToFeed:
             self.updated = True
 
     def save_cache(self, force: bool = False) -> None:
-
         if self.updated or force:
             write_pickle(self.cache, self.cachefile)
 
     def get_feed(self, playlist: str, max_age: Optional[timedelta] = None) -> FeedGenerator:
-
         try:
             dt, feed = self.cache[playlist]
             if max_age and now() - dt > max_age:
@@ -42,7 +38,6 @@ class YoutubeToFeed:
         return feed
 
     def create_feed(self, playlist: str, start: Optional[int] = None, end: Optional[int] = None) -> FeedGenerator:
-
         """playlist must be a youtube playlist url"""
 
         pl = pafy.get_playlist(playlist, gdata=False)

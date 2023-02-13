@@ -63,12 +63,10 @@ def page_not_found(e: Exception) -> Tuple[str, int]:
 
 
 def is_downloaded(info: dict) -> bool:
-
     return info.get("localname") is not None
 
 
 def splitonce(string: str, delim: str) -> Tuple[str, str]:
-
     a, b = string.split(delim)
     return a, b
 
@@ -83,7 +81,6 @@ def redirect_to_cast():
 @app.route("/", methods=["GET"])
 @app.route("/cast/<binary:cast_uid>", methods=["GET"])
 def casts(cast_uid=None):
-
     # cast_uid == cast_title
 
     # fixme: there can be episodes in "all" which are from casts not in the cast list
@@ -130,12 +127,10 @@ def save():
 
 @app.route("/massedit", methods=["POST"])
 def massedit():
-
     episodes = request.form.getlist("episode")
     action = request.form.get("action")
 
     if episodes:
-
         episodes = list(splitonce(e, "|") for e in episodes)  # which exception here?
 
         if action == "delete":
@@ -186,11 +181,15 @@ def downloadepisode(cast_uid, episode_uid):
 def playepisode(cast_uid, episode_uid):
     info = c.episode(cast_uid, episode_uid)
     if info:
-        filename = info["localname"]
+        try:
+            filename = info["localname"]
+        except KeyError:
+            flash("Episode not downloaded yet", "error")
+            return redirect_to_cast()
         try:
             sf = send_file(
                 os.path.join(c.casts_dir, cast_uid, info["localname"]),
-                attachment_filename=filename,
+                download_name=filename,
                 mimetype=info["mimetype"],
                 conditional=True,
                 last_modified=info["date"],
@@ -303,7 +302,6 @@ def download():
 
 
 class ConfigForm(Form):
-
     # BAD WAY TO DEFINE DEFAULT VALUES
     # 1. globals are needed
     # 2. values remain old values if changed later
@@ -326,7 +324,6 @@ class ConfigForm(Form):
 
 @app.route("/config", methods=["GET", "POST"])
 def config():
-
     if request.method == "POST":
         form = ConfigForm(formdata=request.form)
         if form.validate():
@@ -377,5 +374,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()

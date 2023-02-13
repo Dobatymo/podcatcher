@@ -18,11 +18,11 @@
 <div class="body">
 <nav>
 	<h2>Add cast</h2>
-	<form method="post" action="{{ url_for('addcastc') }}"><input style="float: right;" type="submit" /><div style="overflow: hidden;"><input style="float: right; width: 100%;" type="text" title="Cast URL" name="url" pattern=".+://.+" required="required" /></div></form>
+	<form method="post" action="{{ url_for('addcastc') }}"><input style="float: right;" type="submit" /><div style="overflow: hidden;"><input style="float: right; width: 100%;" type="text" title="Cast URL" name="url" pattern=".+://.+" placeholder="URL" required="required" /></div></form>
 	<h2>Casts (<a href="{{ url_for('casts') }}">All episodes</a>)</h2>
 	<ol class="w3-bar-block">
 	{% for cast_uid, cast_title, url in casts %}
-	<li class="w3-bar-item w3-button"><a href="{{ url_for('casts', cast_uid=cast_uid) }}">{{ cast_title }}</a> [<a href="{{ url }}">F</a>, <a href="{{ url_for('renamecastc', cast_uid=cast_uid) }}">R</a>, <a href="{{ url_for('removecast', cast_uid=cast_uid) }}">X</a>]</li>
+	<li class="w3-bar-item w3-button"><a href="{{ url_for('casts', cast_uid=cast_uid) }}">{{ cast_title }}</a> [<a href="{{ url }}" title="Feed">F</a>, <a href="{{ url_for('renamecastc', cast_uid=cast_uid) }}" title="Rename">R</a>, <a href="{{ url_for('removecast', cast_uid=cast_uid) }}" title="Remove">X</a>]</li>
 	{% endfor %}
 	</ol>
 </nav>

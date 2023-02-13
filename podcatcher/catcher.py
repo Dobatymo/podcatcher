@@ -51,7 +51,6 @@ ssl_context = ssl.create_default_context(cadata=certifi.contents())
 
 class ProgressReport:
     def __init__(self, file: IO[str] = sys.stdout) -> None:
-
         self.file = file
         self.start = time.time()
 
@@ -90,7 +89,6 @@ def download(
     timeout=5 * 60,
     headers=None,
 ) -> Tuple[Optional[int], str]:
-
     return URLRequest(url, headers, timeout, ssl_context).download(
         basepath, filename, fn_prio, overwrite, suffix, report
     )
@@ -108,7 +106,6 @@ def download_handle(
     timeout=None,
     headers=None,
 ) -> Tuple[Callable, Optional[Exception], Any]:
-
     localname: Optional[str] = None
     length: Optional[int] = None
     status: Optional[Exception] = None
@@ -183,13 +180,11 @@ def parse_itunes_duration(itunes_duration: Optional[str]) -> Optional[timedelta]
 
 
 class Catcher:
-
     FILENAME_CONFIG = "config.json"
     FILENAME_CASTS = "casts.json"
     FILENAME_FEEDS = "feeds.db.json"
 
     def __init__(self, appdatadir: Path) -> None:
-
         """Call `Catcher.load_feeds()` afterwards to load feeds from cache or download if not available."""
 
         self.appdatadir = appdatadir
@@ -210,21 +205,17 @@ class Catcher:
         # self.load_local()
 
     def load_config(self) -> None:
-
         self.config = read_json(self.appdatadir / self.FILENAME_CONFIG, cls=BuiltinRoundtripDecoder)
 
     def save_config(self) -> None:
-
         write_json(
             self.config, self.appdatadir / self.FILENAME_CONFIG, indent="\t", cls=BuiltinRoundtripEncoder, safe=True
         )
 
     def load_roaming(self) -> None:
-
         self.casts = read_json(self.appdatadir / self.FILENAME_CASTS, cls=BuiltinRoundtripDecoder)
 
     def save_roaming(self) -> None:
-
         if len(self.casts) != len(self.db):
             logging.warning("Inconsistent file information. Casts: %s, DB: %s", len(self.casts), len(self.db))
 
@@ -233,11 +224,9 @@ class Catcher:
         )
 
     def load_local(self) -> None:
-
         self.db = read_json(self.appdatadir / self.FILENAME_FEEDS, cls=BuiltinRoundtripDecoder)
 
     def save_local(self) -> None:
-
         if len(self.casts) != len(self.db):
             logging.warning("Inconsistent file information. Casts: %s, DB: %s", len(self.casts), len(self.db))
 
@@ -254,7 +243,6 @@ class Catcher:
             return True
 
     def episode(self, cast_uid: str, episode_uid: str) -> Optional[dict]:
-
         # if "|" in cast_uid or "|" in episode_uid:
         # 	raise ValueError("arguments cannot contain '|'")
 
@@ -264,7 +252,6 @@ class Catcher:
         return None
 
     def listenedto(self, cast_uid: str, episode_uid: str, date: Optional[datetime] = None) -> datetime:
-
         if not date:
             date = now()
         info = self.episode(cast_uid, episode_uid)
@@ -274,14 +261,12 @@ class Catcher:
         return date
 
     def forget_episode(self, cast_uid: str, episode_uid: str) -> datetime:
-
         info = self.episode(cast_uid, episode_uid)
         if not info:
             raise KeyError((cast_uid, episode_uid))
         return info.pop("listened")
 
     def get_feed(self, url: str) -> Tuple[str, FeedParserDict]:
-
         r = URLRequest(url, context=ssl_context)
         data = BytesIO(r.load())
         feed = feedparser.parse(
@@ -311,7 +296,6 @@ class Catcher:
         feed["url"] = url
 
     def add_feed(self, url: str, cast_uid: str, feed: FeedParserDict) -> bool:
-
         if not url or not cast_uid or not feed:
             raise ValueError("argument values cannot be empty")
 
@@ -338,7 +322,6 @@ class Catcher:
             return False
 
     def remove_cast(self, cast_uid: str, files: bool = False) -> None:
-
         if (cast_uid in self.casts) != (cast_uid in self.db):
             raise RuntimeError("Inconsistent database")
 
@@ -351,7 +334,6 @@ class Catcher:
         self.save_local()
 
     def is_name_collision_add(self, cast_uid_new_safe: str) -> Optional[str]:
-
         for cast_uid in self.casts:
             if cast_uid_new_safe == safe_filename(cast_uid, "_"):
                 return cast_uid
@@ -359,7 +341,6 @@ class Catcher:
         return None
 
     def is_name_collision_rename(self, cast_uid_new_safe: str, cast_uid_old: str) -> Optional[str]:
-
         for cast_uid in self.casts:
             if cast_uid_old != cast_uid:
                 if cast_uid_new_safe == safe_filename(cast_uid, "_"):
@@ -368,7 +349,6 @@ class Catcher:
         return None
 
     def rename_cast(self, cast_uid_old: str, cast_uid_new: str) -> None:
-
         if (cast_uid_new in self.casts) != (cast_uid_new in self.db):
             raise RuntimeError("Inconsistent database")
 
@@ -402,7 +382,6 @@ class Catcher:
         self.save_local()
 
     def remove_episode(self, cast_uid: str, episode_uid: str, file: bool = False) -> Optional[str]:
-
         if file:
             raise RuntimeError("Deleting files not yet implemented")
 
@@ -413,7 +392,6 @@ class Catcher:
         return ep.pop("localname", None)
 
     def update_feed(self, cast_uid: str, feed: FeedParserDict) -> None:
-
         """Modifies `self.db`, calling function should take care of persisting it."""
 
         try:
@@ -498,11 +476,9 @@ class Catcher:
         self.save_local()
 
     def get_episode_uid(self, item: dict) -> Optional[str]:
-
         return first_not_none([item.get("guid"), item.get("link"), item.get("title"), item.get("description")])
 
     def get_download_status(self) -> Tuple[list, list, list, List[Tuple[Exception, Any]]]:
-
         waiting = list(
             (url, basepath, filename, expected_size)
             for callable, (setter, url, basepath, filename, fn_prio, overwrite), (
@@ -526,7 +502,6 @@ class Catcher:
     def download_item(
         self, cast_uid: str, episode_uid: str, force: bool = False, overwrite: bool = False
     ) -> Optional[dict]:
-
         """A completed download changes `self.db`, so Catcher.save_local()` should be called afterwards."""
 
         fn_prio = self.casts[cast_uid].get("filename", None)
@@ -593,7 +568,6 @@ class Catcher:
         return db_entry
 
     def download_items(self, force: bool = False, overwrite: bool = False) -> List[Tuple[str, str]]:
-
         """Asynchronously downloads all items. Returns a list of items which were not queued for download."""
 
         ignored: List[Tuple[str, str]] = []
