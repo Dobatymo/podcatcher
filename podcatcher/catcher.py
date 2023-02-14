@@ -184,6 +184,8 @@ class Catcher:
     FILENAME_CASTS = "casts.json"
     FILENAME_FEEDS = "feeds.db.json"
 
+    casts: Dict[str, Dict[str, Any]]
+
     def __init__(self, appdatadir: Path) -> None:
         """Call `Catcher.load_feeds()` afterwards to load feeds from cache or download if not available."""
 
@@ -204,6 +206,10 @@ class Catcher:
         self.load_roaming()
         # self.load_local()
 
+    def close(self):
+        self.dl.stop()
+        self.dl.join()
+
     def load_config(self) -> None:
         self.config = read_json(self.appdatadir / self.FILENAME_CONFIG, cls=BuiltinRoundtripDecoder)
 
@@ -213,7 +219,10 @@ class Catcher:
         )
 
     def load_roaming(self) -> None:
-        self.casts = read_json(self.appdatadir / self.FILENAME_CASTS, cls=BuiltinRoundtripDecoder)
+        try:
+            self.casts = read_json(self.appdatadir / self.FILENAME_CASTS, cls=BuiltinRoundtripDecoder)
+        except FileNotFoundError:
+            self.casts = {}
 
     def save_roaming(self) -> None:
         if len(self.casts) != len(self.db):
