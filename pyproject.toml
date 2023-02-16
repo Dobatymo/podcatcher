@@ -38,7 +38,7 @@ dependencies = [
 	"flask==2.2.2",
 	"genutility[json,http,flask]==0.0.88",
 	"pafy==0.5.5",
-	"werkzeug==2.2.2",
+	"werkzeug==2.2.3",
 	"WTForms==3.0.1",
 	"youtube-dl==2021.12.17",
 ]
