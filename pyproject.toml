@@ -35,7 +35,7 @@ dependencies = [
 	"appdirs==1.4.4",
 	"feedgen==0.9.0",
 	"feedparser==6.0.10",
-	"flask==2.2.2",
+	"flask==2.3.2",
 	"genutility[json,http,flask]==0.0.97",
 	"pafy==0.5.5",
 	"werkzeug==2.2.3",
