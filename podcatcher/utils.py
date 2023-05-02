@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from appdirs import user_data_dir
+from platformdirs import user_data_dir
 
 APP_NAME = "podcatcher"
 APP_AUTHOR = "Dobatymo"

@@ -30,15 +30,15 @@ authors = [{name = "Dobatymo"}]
 readme = "readme.md"
 classifiers = ["License :: OSI Approved :: ISC License (ISCL)"]
 dynamic = ["version", "description"]
-requires-python = "~=3.7"
+requires-python = "~=3.8"
 dependencies = [
-	"appdirs==1.4.4",
 	"feedgen==0.9.0",
 	"feedparser==6.0.10",
-	"flask==2.2.2",
-	"genutility[json,http,flask]==0.0.97",
+	"flask==2.3.2",
+	"genutility[flask,http,json]==0.0.99",
 	"pafy==0.5.5",
-	"werkzeug==2.2.3",
+	"platformdirs==3.5.0",
+	"werkzeug==2.3.3",
 	"WTForms==3.0.1",
 	"youtube-dl==2021.12.17",
 ]
