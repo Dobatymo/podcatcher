@@ -276,7 +276,7 @@ class Catcher:
         return info.pop("listened")
 
     def get_feed(self, url: str) -> Tuple[str, FeedParserDict]:
-        r = URLRequest(url, context=ssl_context)
+        r = URLRequest(url, headers=self.headers, context=ssl_context)
         data = BytesIO(r.load())
         feed = feedparser.parse(
             data,
