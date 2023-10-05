@@ -14,38 +14,49 @@ warn_redundant_casts = true
 
 [tool.pylint."MESSAGES CONTROL"]
 disable = [
-	"line-too-long",
-	"too-many-public-methods",
-	"missing-function-docstring",
-	"too-many-instance-attributes",
+  "line-too-long",
+  "too-many-public-methods",
+  "missing-function-docstring",
+  "too-many-instance-attributes",
 ]
 
 [build-system]
-requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
+requires = [
+  "flit_core<4,>=3.2",
+]
 
 [project]
 name = "podcatcher"
-authors = [{name = "Dobatymo"}]
 readme = "readme.md"
-classifiers = ["License :: OSI Approved :: ISC License (ISCL)"]
-dynamic = ["version", "description"]
+authors = [{name = "Dobatymo"}]
 requires-python = "~=3.8"
-dependencies = [
-	"feedgen==0.9.0",
-	"feedparser==6.0.10",
-	"flask==2.3.2",
-	"genutility[flask,http,json]==0.0.99",
-	"pafy==0.5.5",
-	"platformdirs==3.5.0",
-	"werkzeug==2.3.3",
-	"WTForms==3.0.1",
-	"youtube-dl==2021.12.17",
+classifiers = [
+  "License :: OSI Approved :: ISC License (ISCL)",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
 ]
-
+dynamic = [
+  "description",
+  "version",
+]
+dependencies = [
+  "feedgen==0.9",
+  "feedparser==6.0.10",
+  "flask==2.3.3",
+  "genutility[flask,http,json]==0.0.99",
+  "pafy==0.5.5",
+  "platformdirs==3.5",
+  "werkzeug==2.3.7",
+  "WTForms==3.0.1",
+  "youtube-dl==2021.12.17",
+]
 [project.urls]
 Source = "https://github.com/Dobatymo/podcatcher"
-
 [project.scripts]
 podcatcher-cli = "podcatcher.cli:main"
 podcatcher-web = "podcatcher.web:main"
