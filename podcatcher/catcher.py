@@ -463,7 +463,7 @@ class Catcher:
             for cast_uid, cast in self.casts.items():
                 future = executor.submit(
                     retry,
-                    partial(self.get_feed, cast["url"]),  # type: ignore[arg-type]
+                    partial(self.get_feed, cast["url"]),
                     10,
                     (ConnectionError, URLError, socket.timeout, ContentInvalidLength),
                     attempts=2,
@@ -475,7 +475,7 @@ class Catcher:
                 cast_uid = futures[future]
                 cast = self.casts[cast_uid]
                 try:
-                    _title, feed = future.result()  # type: ignore[misc]
+                    _title, feed = future.result()
                     self.update_feed(cast_uid, feed)
                 except (ConnectionError, URLError, socket.timeout, ContentInvalidLength) as e:
                     logging.warning("Could not update %s <%s>: %s", cast_uid, cast["url"], e)

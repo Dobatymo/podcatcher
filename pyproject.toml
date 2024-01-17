@@ -6,12 +6,6 @@ profile = "black"
 src_paths = ["."]
 line_length = 120
 
-[tool.mypy]
-ignore_missing_imports = true
-warn_unused_configs = true
-warn_unused_ignores = true
-warn_redundant_casts = true
-
 [tool.pylint."MESSAGES CONTROL"]
 disable = [
   "line-too-long",
@@ -19,6 +13,12 @@ disable = [
   "missing-function-docstring",
   "too-many-instance-attributes",
 ]
+
+[tool.mypy]
+ignore_missing_imports = true
+warn_unused_configs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
 
 [build-system]
 build-backend = "flit_core.buildapi"
@@ -45,14 +45,14 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "feedgen==0.9",
-  "feedparser==6.0.10",
-  "flask==2.3.3",
+  "feedgen==1",
+  "feedparser==6.0.11",
+  "flask==3",
   "genutility[flask,http,json]==0.0.99",
   "pafy==0.5.5",
-  "platformdirs==3.5",
-  "werkzeug==2.3.7",
-  "WTForms==3.0.1",
+  "platformdirs==4.1",
+  "werkzeug==3.0.1",
+  "WTForms==3.1.2",
   "youtube-dl==2021.12.17",
 ]
 [project.urls]

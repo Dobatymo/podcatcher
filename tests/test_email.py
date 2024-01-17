@@ -8,7 +8,3 @@ class TestCatcher(unittest.TestCase):
 
         for date in dates:
             email.utils.parsedate_to_datetime(date)
-
-
-if __name__ == "__main__":
-    unittest.main()
