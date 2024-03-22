@@ -5,35 +5,44 @@ import time
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
 from genutility.args import is_dir
-from genutility.stdio import print_terminal_progress_line
+from genutility.rich import Progress
+from rich.logging import RichHandler
+from rich.progress import Progress as RichProgress
+from rich.table import Table
 
 from .catcher import Catcher
 from .utils import DEFAULT_APPDATA_DIR
 
 
-def wait_for_downloads(c: Catcher, poll: float = 1.0) -> None:
+def make_table_for_status(queued, active, completed, failed) -> Table:
+    grid = Table.grid(expand=True)
+    grid.add_column()
+    for dl in active:
+        grid.add_row(f"Downloaded {dl[1]}/{dl[2]} of {dl[0][0]}")
+    grid.add_row(f"queued: {len(queued)}, active: {len(active)}, completed: {len(completed)}, failed: {len(failed)}")
+    return grid
+
+
+def wait_for_downloads(c: Catcher, progress: Progress, poll: float = 1.0) -> None:
     while True:
         queued, active, completed, failed = c.get_download_status()
-        if active:
-            print_terminal_progress_line(
-                f"queued: {len(queued)}, active: {len(active)}, completed: {len(completed)}, failed: {len(failed)}. Downloaded {active[0][1]}/{active[0][2]} of {active[0][0][0]}."
-            )
-        else:
-            print_terminal_progress_line(
-                f"queued: {len(queued)}, active: {len(active)}, completed: {len(completed)}, failed: {len(failed)}"
-            )
+        grid = make_table_for_status(queued, active, completed, failed)
+        progress.set_epilog(grid)
 
         if not queued and not active:
-            print("completed")
+            progress.print("completed")
             for url, localname, length in completed:
-                print("DONE", localname, length)
-            print("failed")
+                progress.print(f"DONE {localname} {length}")
+            progress.print("failed")
             for status, (url, localname, length) in failed:
-                print("FAILED", url, status)
+                progress.print(f"FAILED {url} {status}")
 
             break
 
+        progress.refresh()
         time.sleep(poll)
+
+    progress.set_epilog()
 
 
 def main():
@@ -50,10 +59,13 @@ def main():
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
+    handler = RichHandler()
+    FORMAT = "%(message)s"
+
     if args.verbose:
-        logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s", level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, format=FORMAT, handlers=[handler])
     else:
-        logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s", level=logging.INFO)
+        logging.basicConfig(level=logging.INFO, format=FORMAT, handlers=[handler])
 
     c = Catcher(args.appdata_dir)
     feeds_updated = c.load_feeds()
@@ -62,9 +74,11 @@ def main():
         if not feeds_updated:
             c.update_feeds()
             feeds_updated = True
-        c.download_items()
-        wait_for_downloads(c)
-        c.save_local()
+        with RichProgress(auto_refresh=False) as p:
+            progress = Progress(p)
+            c.download_items()
+            wait_for_downloads(c, progress)
+            c.save_local()
 
     elif args.action == "add-feed":
         if not args.url:

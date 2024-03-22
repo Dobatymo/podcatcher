@@ -7,14 +7,12 @@ import os.path
 import re
 import socket
 import ssl
-import sys
-import time
 from datetime import datetime, timedelta
 from functools import partial
 from http.client import InvalidURL
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 
 import certifi
@@ -49,22 +47,6 @@ DEFAULT_USER_AGENT = (
 ssl_context = ssl.create_default_context(cadata=certifi.contents())
 
 
-class ProgressReport:
-    def __init__(self, file: IO[str] = sys.stdout) -> None:
-        self.file = file
-        self.start = time.time()
-
-    def __call__(self, done, total):
-        percent = done * 100 / total
-        time_diff = time.time() - self.start
-        total_mb = total / 1024 / 1024
-        print(
-            f"Downloaded {percent:05.2f}% in {time_diff:.0f}s ({total_mb:05.2f}mb)",
-            end="\r",
-            file=self.file,
-        )
-
-
 """
 class DownloadTask:
 
@@ -85,7 +67,7 @@ def download(
     fn_prio=None,
     overwrite: bool = False,
     suffix=".partial",
-    report=None,
+    report: Optional[Callable[[int, int], None]] = None,
     timeout=5 * 60,
     headers=None,
 ) -> Tuple[Optional[int], str]:
@@ -95,7 +77,7 @@ def download(
 
 
 def download_handle(
-    report,
+    report: Optional[Callable[[int, int], None]],
     setter: Callable,
     url: str,
     basepath: str,

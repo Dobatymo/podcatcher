@@ -23,16 +23,16 @@ repos:
   - id: pretty-format-yaml
     args: [--autofix]
 - repo: https://github.com/tox-dev/pyproject-fmt
-  rev: 1.5.3
+  rev: 1.7.0
   hooks:
   - id: pyproject-fmt
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.15.0
+  rev: v3.15.1
   hooks:
   - id: pyupgrade
     args: [--py38-plus]
-- repo: https://github.com/psf/black
-  rev: 23.12.1
+- repo: https://github.com/psf/black-pre-commit-mirror
+  rev: 24.3.0
   hooks:
   - id: black
 - repo: https://github.com/PyCQA/isort
@@ -40,7 +40,7 @@ repos:
   hooks:
   - id: isort
 - repo: https://github.com/PyCQA/bandit
-  rev: 1.7.6
+  rev: 1.7.8
   hooks:
   - id: bandit
     args: [--ini, .bandit]
@@ -49,17 +49,17 @@ repos:
   hooks:
   - id: flake8
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.8.0
+  rev: v1.9.0
   hooks:
   - id: mypy
     args: [--install-types, --non-interactive, --show-error-codes]
     additional_dependencies:
-    - feedgen==1
+    - feedgen==1.0.0
     - feedparser==6.0.11
-    - flask==3
-    - genutility[flask,http,json]==0.0.99
+    - flask==3.0.2
+    - genutility[flask,http,json,rich]==0.0.103
     - pafy==0.5.5
-    - platformdirs==4.1
+    - platformdirs==4.2.0
     - werkzeug==3.0.1
     - WTForms==3.1.2
     - youtube-dl==2021.12.17
