@@ -1,4 +1,4 @@
-""" This is the CLI entrypoint to PodCatcher """
+"""This is the CLI entrypoint to PodCatcher"""
 
 import logging
 import time
@@ -31,10 +31,10 @@ def wait_for_downloads(c: Catcher, progress: Progress, poll: float = 1.0) -> Non
 
         if not queued and not active:
             progress.print("completed")
-            for url, localname, length in completed:
+            for _url, localname, length in completed:
                 progress.print(f"DONE {localname} {length}")
             progress.print("failed")
-            for status, (url, localname, length) in failed:
+            for status, (url, _localname, _length) in failed:
                 progress.print(f"FAILED {url} {status}")
 
             break
@@ -59,7 +59,7 @@ def main():
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
-    handler = RichHandler()
+    handler = RichHandler(log_time_format="%Y-%m-%d %H-%M-%S%Z")
     FORMAT = "%(message)s"
 
     if args.verbose:
