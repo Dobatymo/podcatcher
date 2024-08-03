@@ -4,6 +4,11 @@ line-length = 120
 [tool.ruff]
 line-length = 120
 
+lint.extend-select = [
+  "B",
+  "I",
+]
+
 [tool.isort]
 profile = "black"
 line_length = 120

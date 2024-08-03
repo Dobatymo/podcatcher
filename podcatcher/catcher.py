@@ -98,7 +98,7 @@ def download_handle(
         )
 
         if expected_size and expected_size != length:
-            logging.error("Download succeeded, but size %s doesn't match enclosure length %s", length, expected_size)
+            logging.warning("Download succeeded, but size %s doesn't match enclosure length %s", length, expected_size)
 
     except FileExistsError as e:
         localname = os.path.basename(e.filename)
@@ -111,9 +111,10 @@ def download_handle(
 
     except ContentInvalidLength as e:
         localname = os.path.basename(e.args[0])
-        length = e.args[2]  # can raise not found or sth. again
+        content_length = e.args[1]
+        length = e.args[2]
         status = e
-        logging.warning("%s might be incomplete. Transferred %d/%d", localname, e.args[1], e.args[2])
+        logging.error("%s might be incomplete. Transferred %d/%d", localname, length, content_length)
     except HTTPError as e:
         status = e
         if e.code == 404:

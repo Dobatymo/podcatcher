@@ -64,7 +64,7 @@ repos:
     - feedgen==1.0.0
     - feedparser==6.0.11
     - flask==3.0.2
-    - genutility[flask,http,json,rich]==0.0.103
+    - genutility[flask,http,json,rich]==0.0.106
     - pafy==0.5.5
     - platformdirs==4.2.0
     - werkzeug==3.0.1
