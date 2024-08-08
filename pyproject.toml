@@ -1,3 +1,42 @@
+[build-system]
+build-backend = "flit_core.buildapi"
+requires = [
+  "flit-core<4,>=3.2",
+]
+
+[project]
+name = "podcatcher"
+readme = "readme.md"
+authors = [ { name = "Dobatymo" } ]
+requires-python = ">=3.8"
+classifiers = [
+  "License :: OSI Approved :: ISC License (ISCL)",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dynamic = [
+  "description",
+  "version",
+]
+dependencies = [
+  "feedgen==1",
+  "feedparser==6.0.11",
+  "flask==3.0.3",
+  "genutility[flask,http,json,rich]==0.0.106",
+  "pafy==0.5.5",
+  "platformdirs==4.2.2",
+  "werkzeug==3.0.3",
+  "wtforms==3.1.2",
+  "youtube-dl==2021.12.17",
+]
+urls.Source = "https://github.com/Dobatymo/podcatcher"
+scripts.podcatcher-cli = "podcatcher.cli:main"
+scripts.podcatcher-web = "podcatcher.web:main"
+
 [tool.black]
 line-length = 120
 
@@ -20,45 +59,4 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 
 [tool.bandit]
-skips = ["B101"]
-
-[build-system]
-build-backend = "flit_core.buildapi"
-requires = [
-  "flit_core<4,>=3.2",
-]
-
-[project]
-name = "podcatcher"
-readme = "readme.md"
-authors = [{name = "Dobatymo"}]
-requires-python = "~=3.8"
-classifiers = [
-  "License :: OSI Approved :: ISC License (ISCL)",
-  "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-]
-dynamic = [
-  "description",
-  "version",
-]
-dependencies = [
-  "feedgen==1",
-  "feedparser==6.0.11",
-  "flask==3.0.2",
-  "genutility[flask,http,json,rich]==0.0.103",
-  "pafy==0.5.5",
-  "platformdirs==4.2",
-  "werkzeug==3.0.1",
-  "WTForms==3.1.2",
-  "youtube-dl==2021.12.17",
-]
-[project.urls]
-Source = "https://github.com/Dobatymo/podcatcher"
-[project.scripts]
-podcatcher-cli = "podcatcher.cli:main"
-podcatcher-web = "podcatcher.web:main"
+skips = [ "B101" ]
