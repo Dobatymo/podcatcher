@@ -22,7 +22,7 @@ from genutility.concurrency import ProgressThreadPool
 from genutility.datetime import naive_to_aware, now
 from genutility.filesystem import safe_filename
 from genutility.func import retry
-from genutility.http import ContentInvalidLength, URLRequest
+from genutility.http import ContentInvalidLength, TimeOut, URLRequest
 from genutility.iter import first_not_none
 from genutility.json import BuiltinRoundtripDecoder, BuiltinRoundtripEncoder, read_json, write_json
 from genutility.string import toint
@@ -108,7 +108,6 @@ def download_handle(
             logging.warning(
                 "%s exists, but size %s doesn't match enclosure length %s", e.filename, length, expected_size
             )
-
     except ContentInvalidLength as e:
         localname = os.path.basename(e.args[0])
         content_length = e.args[1]
@@ -117,13 +116,16 @@ def download_handle(
         logging.error("%s might be incomplete. Transferred %d/%d", localname, length, content_length)
     except HTTPError as e:
         status = e
-        if e.code == 404:
-            logging.error("HTTP 404 error for <%s>", url)
+        if e.code in (403, 404):
+            logging.error("HTTP error %s for <%s>", e.code, url)
         else:
             logging.exception("Downloading <%s> failed: HTTP error", url)
     except (URLError, InvalidURL) as e:
         status = e
         logging.exception("Downloading <%s> failed: Invalid URL", url)
+    except TimeOut as e:
+        status = e
+        logging.error("Downloading <%s> failed: Timeout", url)
     except Exception as e:
         status = e
         logging.exception("Downloading <%s> failed.", url)
