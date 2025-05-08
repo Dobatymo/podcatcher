@@ -170,6 +170,7 @@ class Catcher:
     FILENAME_FEEDS = "feeds.db.json"
 
     casts: Dict[str, Dict[str, Any]]
+    db: Dict[str, Any]
 
     def __init__(self, appdatadir: Path) -> None:
         """Call `Catcher.load_feeds()` afterwards to load feeds from cache or download if not available."""
@@ -209,10 +210,17 @@ class Catcher:
         except FileNotFoundError:
             self.casts = {}
 
-    def save_roaming(self) -> None:
-        if len(self.casts) != len(self.db):
-            logging.warning("Inconsistent file information. Casts: %s, DB: %s", len(self.casts), len(self.db))
+    def _check_casts_consistency(self) -> None:
+        a = self.casts.keys() - self.db.keys()
+        b = self.db.keys() - self.casts.keys()
 
+        if a or b:
+            logging.warning(
+                "Inconsistent file information. Casts: %s, DB: %s, Diff: %s", len(self.casts), len(self.db), a | b
+            )
+
+    def save_roaming(self) -> None:
+        self._check_casts_consistency()
         write_json(
             self.casts, self.appdatadir / self.FILENAME_CASTS, indent="\t", cls=BuiltinRoundtripEncoder, safe=True
         )
@@ -221,9 +229,7 @@ class Catcher:
         self.db = read_json(self.appdatadir / self.FILENAME_FEEDS, cls=BuiltinRoundtripDecoder)
 
     def save_local(self) -> None:
-        if len(self.casts) != len(self.db):
-            logging.warning("Inconsistent file information. Casts: %s, DB: %s", len(self.casts), len(self.db))
-
+        self._check_casts_consistency()
         write_json(self.db, self.appdatadir / self.FILENAME_FEEDS, indent="\t", cls=BuiltinRoundtripEncoder, safe=True)
 
     def load_feeds(self) -> bool:
