@@ -1,4 +1,4 @@
-""" This is the Web entrypoint to PodCatcher """
+"""This is the Web entrypoint to PodCatcher"""
 
 import logging
 import os

@@ -1,36 +1,14 @@
-[tool.black]
-line-length = 120
-
-[tool.isort]
-profile = "black"
-src_paths = ["."]
-line_length = 120
-
-[tool.mypy]
-ignore_missing_imports = true
-warn_unused_configs = true
-warn_unused_ignores = true
-warn_redundant_casts = true
-
-[tool.pylint."MESSAGES CONTROL"]
-disable = [
-  "line-too-long",
-  "too-many-public-methods",
-  "missing-function-docstring",
-  "too-many-instance-attributes",
-]
-
 [build-system]
 build-backend = "flit_core.buildapi"
 requires = [
-  "flit_core<4,>=3.2",
+  "flit-core<4,>=3.2",
 ]
 
 [project]
 name = "podcatcher"
 readme = "readme.md"
-authors = [{name = "Dobatymo"}]
-requires-python = "~=3.8"
+authors = [ { name = "Dobatymo" } ]
+requires-python = ">=3.8"
 classifiers = [
   "License :: OSI Approved :: ISC License (ISCL)",
   "Programming Language :: Python :: 3 :: Only",
@@ -45,18 +23,45 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "feedgen==0.9",
-  "feedparser==6.0.10",
-  "flask==2.3.3",
-  "genutility[flask,http,json]==0.0.99",
+  "feedgen==1",
+  "feedparser==6.0.11",
+  "flask==3.0.3",
+  "genutility[flask,http,json,rich]==0.0.106",
   "pafy==0.5.5",
-  "platformdirs==3.5",
-  "werkzeug==3.0.1",
-  "WTForms==3.0.1",
+  "platformdirs==4.2.2",
+  "werkzeug==3.0.3",
+  "wtforms==3.1.2",
   "youtube-dl==2021.12.17",
 ]
-[project.urls]
-Source = "https://github.com/Dobatymo/podcatcher"
-[project.scripts]
-podcatcher-cli = "podcatcher.cli:main"
-podcatcher-web = "podcatcher.web:main"
+urls.Source = "https://github.com/Dobatymo/podcatcher"
+scripts.podcatcher-cli = "podcatcher.cli:main"
+scripts.podcatcher-web = "podcatcher.web:main"
+
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+line-length = 120
+lint.extend-select = [
+  "B",
+  "I",
+]
+lint.ignore = [
+  "B011",
+]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.mypy]
+ignore_missing_imports = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.bandit]
+skips = [ "B101" ]

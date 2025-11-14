@@ -7,14 +7,12 @@ import os.path
 import re
 import socket
 import ssl
-import sys
-import time
 from datetime import datetime, timedelta
 from functools import partial
 from http.client import InvalidURL
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 
 import certifi
@@ -24,7 +22,7 @@ from genutility.concurrency import ProgressThreadPool
 from genutility.datetime import naive_to_aware, now
 from genutility.filesystem import safe_filename
 from genutility.func import retry
-from genutility.http import ContentInvalidLength, URLRequest
+from genutility.http import ContentInvalidLength, TimeOut, URLRequest
 from genutility.iter import first_not_none
 from genutility.json import BuiltinRoundtripDecoder, BuiltinRoundtripEncoder, read_json, write_json
 from genutility.string import toint
@@ -49,22 +47,6 @@ DEFAULT_USER_AGENT = (
 ssl_context = ssl.create_default_context(cadata=certifi.contents())
 
 
-class ProgressReport:
-    def __init__(self, file: IO[str] = sys.stdout) -> None:
-        self.file = file
-        self.start = time.time()
-
-    def __call__(self, done, total):
-        percent = done * 100 / total
-        time_diff = time.time() - self.start
-        total_mb = total / 1024 / 1024
-        print(
-            f"Downloaded {percent:05.2f}% in {time_diff:.0f}s ({total_mb:05.2f}mb)",
-            end="\r",
-            file=self.file,
-        )
-
-
 """
 class DownloadTask:
 
@@ -85,7 +67,7 @@ def download(
     fn_prio=None,
     overwrite: bool = False,
     suffix=".partial",
-    report=None,
+    report: Optional[Callable[[int, int], None]] = None,
     timeout=5 * 60,
     headers=None,
 ) -> Tuple[Optional[int], str]:
@@ -95,7 +77,7 @@ def download(
 
 
 def download_handle(
-    report,
+    report: Optional[Callable[[int, int], None]],
     setter: Callable,
     url: str,
     basepath: str,
@@ -116,7 +98,7 @@ def download_handle(
         )
 
         if expected_size and expected_size != length:
-            logging.error("Download succeeded, but size %s doesn't match enclosure length %s", length, expected_size)
+            logging.warning("Download succeeded, but size %s doesn't match enclosure length %s", length, expected_size)
 
     except FileExistsError as e:
         localname = os.path.basename(e.filename)
@@ -126,21 +108,24 @@ def download_handle(
             logging.warning(
                 "%s exists, but size %s doesn't match enclosure length %s", e.filename, length, expected_size
             )
-
     except ContentInvalidLength as e:
         localname = os.path.basename(e.args[0])
-        length = e.args[2]  # can raise not found or sth. again
+        content_length = e.args[1]
+        length = e.args[2]
         status = e
-        logging.warning("%s might be incomplete. Transferred %d/%d", localname, e.args[1], e.args[2])
+        logging.error("%s might be incomplete. Transferred %d/%d", localname, length, content_length)
     except HTTPError as e:
         status = e
-        if e.code == 404:
-            logging.error("HTTP 404 error for <%s>", url)
+        if e.code in (403, 404):
+            logging.error("HTTP error %s for <%s>", e.code, url)
         else:
             logging.exception("Downloading <%s> failed: HTTP error", url)
     except (URLError, InvalidURL) as e:
         status = e
         logging.exception("Downloading <%s> failed: Invalid URL", url)
+    except TimeOut as e:
+        status = e
+        logging.error("Downloading <%s> failed: Timeout", url)
     except Exception as e:
         status = e
         logging.exception("Downloading <%s> failed.", url)
@@ -185,6 +170,7 @@ class Catcher:
     FILENAME_FEEDS = "feeds.db.json"
 
     casts: Dict[str, Dict[str, Any]]
+    db: Dict[str, Any]
 
     def __init__(self, appdatadir: Path) -> None:
         """Call `Catcher.load_feeds()` afterwards to load feeds from cache or download if not available."""
@@ -224,10 +210,17 @@ class Catcher:
         except FileNotFoundError:
             self.casts = {}
 
-    def save_roaming(self) -> None:
-        if len(self.casts) != len(self.db):
-            logging.warning("Inconsistent file information. Casts: %s, DB: %s", len(self.casts), len(self.db))
+    def _check_casts_consistency(self) -> None:
+        a = self.casts.keys() - self.db.keys()
+        b = self.db.keys() - self.casts.keys()
 
+        if a or b:
+            logging.warning(
+                "Inconsistent file information. Casts: %s, DB: %s, Diff: %s", len(self.casts), len(self.db), a | b
+            )
+
+    def save_roaming(self) -> None:
+        self._check_casts_consistency()
         write_json(
             self.casts, self.appdatadir / self.FILENAME_CASTS, indent="\t", cls=BuiltinRoundtripEncoder, safe=True
         )
@@ -236,9 +229,7 @@ class Catcher:
         self.db = read_json(self.appdatadir / self.FILENAME_FEEDS, cls=BuiltinRoundtripDecoder)
 
     def save_local(self) -> None:
-        if len(self.casts) != len(self.db):
-            logging.warning("Inconsistent file information. Casts: %s, DB: %s", len(self.casts), len(self.db))
-
+        self._check_casts_consistency()
         write_json(self.db, self.appdatadir / self.FILENAME_FEEDS, indent="\t", cls=BuiltinRoundtripEncoder, safe=True)
 
     def load_feeds(self) -> bool:
@@ -463,7 +454,7 @@ class Catcher:
             for cast_uid, cast in self.casts.items():
                 future = executor.submit(
                     retry,
-                    partial(self.get_feed, cast["url"]),  # type: ignore[arg-type]
+                    partial(self.get_feed, cast["url"]),
                     10,
                     (ConnectionError, URLError, socket.timeout, ContentInvalidLength),
                     attempts=2,
@@ -475,7 +466,7 @@ class Catcher:
                 cast_uid = futures[future]
                 cast = self.casts[cast_uid]
                 try:
-                    _title, feed = future.result()  # type: ignore[misc]
+                    _title, feed = future.result()
                     self.update_feed(cast_uid, feed)
                 except (ConnectionError, URLError, socket.timeout, ContentInvalidLength) as e:
                     logging.warning("Could not update %s <%s>: %s", cast_uid, cast["url"], e)

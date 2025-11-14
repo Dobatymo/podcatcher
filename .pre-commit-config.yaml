@@ -1,6 +1,6 @@
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.4.0
+  rev: v5.0.0
   hooks:
   - id: check-added-large-files
   - id: check-case-conflict
@@ -18,52 +18,59 @@ repos:
   - id: trailing-whitespace
     args: [--markdown-linebreak-ext=md]
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.10.0
+  rev: v2.14.0
   hooks:
   - id: pretty-format-yaml
     args: [--autofix]
 - repo: https://github.com/tox-dev/pyproject-fmt
-  rev: 1.2.0
+  rev: 2.2.4
   hooks:
   - id: pyproject-fmt
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.14.0
+  rev: v3.16.0
   hooks:
   - id: pyupgrade
     args: [--py38-plus]
-- repo: https://github.com/psf/black
-  rev: 23.9.1
+- repo: https://github.com/psf/black-pre-commit-mirror
+  rev: 24.8.0
   hooks:
   - id: black
 - repo: https://github.com/PyCQA/isort
-  rev: 5.12.0
+  rev: 5.13.2
   hooks:
   - id: isort
 - repo: https://github.com/PyCQA/bandit
-  rev: 1.7.5
+  rev: 1.7.10
   hooks:
   - id: bandit
-    args: [--ini, .bandit]
+    args: [-c, pyproject.toml]
+    additional_dependencies: ['.[toml]']
 - repo: https://github.com/pycqa/flake8
-  rev: 6.1.0
+  rev: 7.1.1
   hooks:
   - id: flake8
+    additional_dependencies:
+    - flake8-annotations
+    - flake8-bugbear
+    - flake8-eradicate
+    - flake8-mutable
+    - flake8-simplify
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.5.1
+  rev: v1.11.2
   hooks:
   - id: mypy
     args: [--install-types, --non-interactive, --show-error-codes]
     additional_dependencies:
-    - feedgen==0.9.0
-    - feedparser==6.0.10
-    - flask==2.3.3
-    - genutility[flask,http,json]==0.0.99
+    - feedgen==1.0.0
+    - feedparser==6.0.11
+    - flask==3.0.2
+    - genutility[flask,http,json,rich]==0.0.106
     - pafy==0.5.5
-    - platformdirs==3.5.0
-    - werkzeug==2.3.7
-    - WTForms==3.0.1
+    - platformdirs==4.2.0
+    - werkzeug==3.0.1
+    - WTForms==3.1.2
     - youtube-dl==2021.12.17
 - repo: https://github.com/Yelp/detect-secrets
-  rev: v1.4.0
+  rev: v1.5.0
   hooks:
   - id: detect-secrets
