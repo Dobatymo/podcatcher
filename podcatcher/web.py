@@ -1,5 +1,6 @@
 """This is the Web entrypoint to PodCatcher"""
 
+import locale
 import logging
 import os
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
@@ -370,6 +371,10 @@ def youtube_to_feed(format, url):
 
 
 def main():
+    locale.setlocale(
+        locale.LC_TIME, ""
+    )  # this sets it to the correct locale, it's unset otherwise. needed for strftime %x
+
     app.run(host="127.0.0.1", port=8000, debug=True, threaded=True, use_reloader=False)  # nosec
 
 
