@@ -13,6 +13,8 @@ from rich.table import Table
 from .catcher import Catcher
 from .utils import DEFAULT_APPDATA_DIR
 
+logger = logging.getLogger(__name__)
+
 
 def make_table_for_status(queued, active, completed, failed) -> Table:
     grid = Table.grid(expand=True)
@@ -96,7 +98,7 @@ def main():
             parser.error("update-feed requires --title")
 
         url = c.casts[args.title]["url"]
-        logging.info("Updating feed: %s", url)
+        logger.info("Updating feed: %s", url)
         _, feed = c.get_feed(url)
         c.update_feed(args.title, feed)
         c.save_local()

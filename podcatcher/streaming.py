@@ -9,15 +9,16 @@ from genutility.pickle import read_pickle, write_pickle
 
 class YoutubeToFeed:
     video_url = "https://www.youtube.com/watch?v={}"
+    cache: Dict[str, Tuple[datetime, FeedGenerator]]
 
     def __init__(self) -> None:
         self.cachefile = "tmp/youtube-cache.p"
 
         try:
-            self.cache: Dict[str, Tuple[datetime, FeedGenerator]] = read_pickle(self.cachefile)
+            self.cache = read_pickle(self.cachefile)
             self.updated = False
         except FileNotFoundError:
-            self.cache = dict()
+            self.cache = {}
             self.updated = True
 
     def save_cache(self, force: bool = False) -> None:
@@ -63,7 +64,7 @@ class YoutubeToFeed:
                 stream = p.getbestaudio("m4a")
                 mimetype = "audio/mp4"
             if not stream:
-                raise
+                raise RuntimeError("no valid stream found")
 
             created = m.get("time_created")
             if created:

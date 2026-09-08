@@ -4,7 +4,7 @@ import locale
 import logging
 import os
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
-from typing import Tuple
+from typing import List, Tuple
 
 from flask import Flask, Response, abort, flash, make_response, redirect, render_template, request, send_file, url_for
 from genutility.args import is_dir
@@ -37,6 +37,8 @@ item id order: guid, link, title, description, pubDate
 
 """
 
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
@@ -59,7 +61,7 @@ app.url_map.converters["binary"] = Base64Converter
 
 @app.errorhandler(404)
 def page_not_found(e: Exception) -> Tuple[str, int]:
-    logging.info(f"404: {request.url}")
+    logger.info(f"404: {request.url}")
     return ("Not Found", 404)
 
 
@@ -86,30 +88,32 @@ def casts(cast_uid=None):
 
     # fixme: there can be episodes in "all" which are from casts not in the cast list
 
-    episodes = list()
+    episodes: List[Tuple[str, str, str, str, dict, bool]] = []
 
     if cast_uid is None:
-        for cast_uid, feed in c.db.items():
+        for the_cast_uid, feed in c.db.items():
             for episode_uid in feed["items"]:
-                info = c.episode(cast_uid, episode_uid)
-                episodes.append((cast_uid, episode_uid, cast_uid, info["title"], info, is_downloaded(info)))
+                info = c.episode(the_cast_uid, episode_uid)
+                assert info is not None
+                episodes.append((the_cast_uid, episode_uid, the_cast_uid, info["title"], info, is_downloaded(info)))
         cast_title = "All"
     else:
         try:
             feed = c.db[cast_uid]
         except KeyError:
-            flash("Invalid Cast", "error")
+            flash(f'Invalid Cast "{cast_uid}"', "error")
             return redirect(url_for("casts"))
 
         for episode_uid in feed["items"]:
             info = c.episode(cast_uid, episode_uid)
+            assert info is not None
             episodes.append((cast_uid, episode_uid, cast_uid, info["title"], info, is_downloaded(info)))
 
         cast_title = cast_uid
 
-    casts = list()
-    for cast_uid, info in c.casts.items():
-        casts.append((cast_uid, cast_uid, info["url"]))
+    casts: List[Tuple[str, str, str]] = []
+    for the_cast_uid, info in c.casts.items():
+        casts.append((the_cast_uid, the_cast_uid, info["url"]))
 
     if c.config["descending"]:
         episodes = sorted(episodes, key=lambda x: x[4]["date"], reverse=True)
@@ -132,7 +136,7 @@ def massedit():
     action = request.form.get("action")
 
     if episodes:
-        episodes = list(splitonce(e, "|") for e in episodes)  # which exception here?
+        episodes = [splitonce(e, "|") for e in episodes]  # which exception here?
 
         if action == "delete":
             for cast_uid, episode_uid in episodes:
@@ -168,6 +172,7 @@ def removeepisode(cast_uid, episode_uid):
 @app.route("/downloadepisode/<binary:cast_uid>/<binary:episode_uid>", methods=["GET"])
 def downloadepisode(cast_uid, episode_uid):
     ep = c.download_item(cast_uid, episode_uid)  # is async now
+    assert ep is not None
     flash("Started downloading episode: {} / {}".format(cast_uid, ep["title"]), "info")
     """
 	if is_downloaded(ep):
@@ -196,12 +201,12 @@ def playepisode(cast_uid, episode_uid):
                 last_modified=info["date"],
             )
         except FileNotFoundError:
-            logging.warning("Tried to play file: %s", filename)
+            logger.warning("Tried to play file: %s", filename)
             abort(404)
         response = make_response(sf)
-        response.headers["Content-Disposition"] = 'inline; filename="{}"'.format(
-            filename
-        )  # flask doesn't support inline filename. encoding?
+        response.headers["Content-Disposition"] = (
+            f'inline; filename="{filename}"'  # flask doesn't support inline filename. encoding?
+        )
         return response
     else:
         flash("Invalid episode", "error")
@@ -232,7 +237,7 @@ def addcastc():
     if url.startswith("https://www.youtube.com/playlist"):
         url = url_for("youtube_to_feed", format="rss", url=url, _external=True)
     try:
-        title, feed = c.get_feed(url)
+        title, _feed = c.get_feed(url)
     except InvalidFeed:
         flash("Parsing feed failed", "warning")
         return redirect(url_for("casts"))
@@ -362,7 +367,7 @@ def youtube_to_feed(format, url):
     try:
         feed = yt.get_feed(url)
     except ValueError:
-        logging.exception("Invalid playlist")
+        logger.exception("Invalid playlist")
         return (f"Invalid playlist url: {url}", 400)
     yt.save_cache()
 
@@ -375,7 +380,7 @@ def main():
         locale.LC_TIME, ""
     )  # this sets it to the correct locale, it's unset otherwise. needed for strftime %x
 
-    app.run(host="127.0.0.1", port=8000, debug=True, threaded=True, use_reloader=False)  # nosec
+    app.run(host="127.0.0.1", port=8000, debug=True, threaded=True, use_reloader=False)  # noqa: S201
 
 
 if __name__ == "__main__":
