@@ -98,14 +98,14 @@ def download_handle(
         )
 
         if expected_size and expected_size != length:
-            logging.warning("Download succeeded, but size %s doesn't match enclosure length %s", length, expected_size)
+            logger.warning("Download succeeded, but size %s doesn't match enclosure length %s", length, expected_size)
 
     except FileExistsError as e:
         localname = os.path.basename(e.filename)
         length = os.stat(e.filename).st_size  # can raise not found or sth. again
 
         if expected_size and expected_size != length:
-            logging.warning(
+            logger.warning(
                 "%s exists, but size %s doesn't match enclosure length %s", e.filename, length, expected_size
             )
     except ContentInvalidLength as e:
@@ -113,22 +113,22 @@ def download_handle(
         content_length = e.args[1]
         length = e.args[2]
         status = e
-        logging.error("%s might be incomplete. Transferred %d/%d", localname, length, content_length)
+        logger.error("%s might be incomplete. Transferred %d/%d", localname, length, content_length)
     except HTTPError as e:
         status = e
         if e.code in (403, 404):
-            logging.error("HTTP error %s for <%s>", e.code, url)
+            logger.error("HTTP error %s for <%s>", e.code, url)
         else:
-            logging.exception("Downloading <%s> failed: HTTP error", url)
+            logger.exception("Downloading <%s> failed: HTTP error", url)
     except (URLError, InvalidURL) as e:
         status = e
-        logging.exception("Downloading <%s> failed: Invalid URL", url)
+        logger.exception("Downloading <%s> failed: Invalid URL", url)
     except TimeOut as e:
         status = e
-        logging.error("Downloading <%s> failed: Timeout", url)
+        logger.error("Downloading <%s> failed: Timeout", url)
     except Exception as e:
         status = e
-        logging.exception("Downloading <%s> failed.", url)
+        logger.exception("Downloading <%s> failed.", url)
 
     return setter, status, (url, localname, length)  # put some info there to make sure failed downloads can be repeated
 
@@ -215,7 +215,7 @@ class Catcher:
         b = self.db.keys() - self.casts.keys()
 
         if a or b:
-            logging.warning(
+            logger.warning(
                 "Inconsistent file information. Casts: %s, DB: %s, Diff: %s", len(self.casts), len(self.db), a | b
             )
 
@@ -252,7 +252,7 @@ class Catcher:
         return None
 
     def listenedto(self, cast_uid: str, episode_uid: str, date: Optional[datetime] = None) -> datetime:
-        if not date:
+        if date is None:
             date = now()
         info = self.episode(cast_uid, episode_uid)
         if not info:
@@ -278,7 +278,7 @@ class Catcher:
         )
 
         if feed.bozo:
-            logging.error("Feed mal-formed <%s>: %s", url, feed.bozo_exception)
+            logger.error("Feed mal-formed <%s>: %s", url, feed.bozo_exception)
 
         if len(feed.feed) == 0 and len(feed.entries) == 0:  # compare with standard
             raise InvalidFeed("Feed does neither contain a description nor files")
@@ -342,9 +342,8 @@ class Catcher:
 
     def is_name_collision_rename(self, cast_uid_new_safe: str, cast_uid_old: str) -> Optional[str]:
         for cast_uid in self.casts:
-            if cast_uid_old != cast_uid:
-                if cast_uid_new_safe == safe_filename(cast_uid, "_"):
-                    return cast_uid
+            if cast_uid_old != cast_uid and cast_uid_new_safe == safe_filename(cast_uid, "_"):
+                return cast_uid
 
         return None
 
@@ -359,21 +358,23 @@ class Catcher:
             return
 
         if cast_uid_new in self.casts:
-            raise ValueError("Cast already exists")
+            raise ValueError(f'Cast "{cast_uid_new}" already exists')
 
         cast_uid_old_safe = safe_filename(cast_uid_old, "_")
         cast_uid_new_safe = safe_filename(cast_uid_new, "_")
 
         collision = self.is_name_collision_rename(cast_uid_new_safe, cast_uid_old)
         if collision:
-            raise ValueError(f"Name collision with {collision}")
+            raise ValueError(f'Name collision with "{collision}"')
 
+        cast_src = self.casts_dir / cast_uid_old_safe
+        cast_dest = self.casts_dir / cast_uid_new_safe
         try:
-            (self.casts_dir / cast_uid_old_safe).rename(self.casts_dir / cast_uid_new_safe)
+            cast_src.rename(cast_dest)
         except FileNotFoundError:
-            raise ValueError("Cast directory not found")
+            raise ValueError(f"Cast directory <{cast_src}> not found") from None
         except FileExistsError:
-            raise ValueError("Directory already exists")
+            raise ValueError(f"Directory <{cast_src}> already exists") from None
 
         self.casts[cast_uid_new] = self.casts.pop(cast_uid_old)
         self.db[cast_uid_new] = self.db.pop(cast_uid_old)
@@ -402,8 +403,8 @@ class Catcher:
         try:
             self.db[cast_uid]["date"] = pub
         except KeyError:
-            self.db[cast_uid] = dict()
-            self.db[cast_uid]["items"] = dict()
+            self.db[cast_uid] = {}
+            self.db[cast_uid]["items"] = {}
             self.db[cast_uid]["date"] = pub
 
         for entry in feed.entries:
@@ -411,7 +412,7 @@ class Catcher:
                 db_entry = self.db[cast_uid]["items"][self.get_episode_uid(entry)]
             except KeyError:
                 episode_uid = self.get_episode_uid(entry)
-                self.db[cast_uid]["items"][episode_uid] = dict()
+                self.db[cast_uid]["items"][episode_uid] = {}
                 db_entry = self.db[cast_uid]["items"][episode_uid]
 
             try:
@@ -447,7 +448,7 @@ class Catcher:
     def update_feeds(self) -> None:
         feed: FeedParserDict
 
-        logging.debug("Refreshing all feeds")
+        logger.debug("Refreshing all feeds")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             futures: Dict[concurrent.futures.Future, str] = {}
@@ -469,9 +470,9 @@ class Catcher:
                     _title, feed = future.result()
                     self.update_feed(cast_uid, feed)
                 except (ConnectionError, URLError, socket.timeout, ContentInvalidLength) as e:
-                    logging.warning("Could not update %s <%s>: %s", cast_uid, cast["url"], e)
+                    logger.warning("Could not update %s <%s>: %s", cast_uid, cast["url"], e)
                 except InvalidFeed as e:
-                    logging.warning("Invalid feed %s <%s>: %s", cast_uid, cast["url"], e)
+                    logger.warning("Invalid feed %s <%s>: %s", cast_uid, cast["url"], e)
 
         self.save_local()
 
@@ -479,22 +480,22 @@ class Catcher:
         return first_not_none([item.get("guid"), item.get("link"), item.get("title"), item.get("description")])
 
     def get_download_status(self) -> Tuple[list, list, list, List[Tuple[Exception, Any]]]:
-        waiting = list(
+        waiting = [
             (url, basepath, filename, expected_size)
             for callable, (setter, url, basepath, filename, fn_prio, overwrite), (
                 expected_size,
                 timeout,
                 headers,
             ) in self.dl.get_waiting()
-        )
-        running = list(
+        ]
+        running = [
             ((url, basepath, filename, expected_size), done, total)
             for (
                 callable,
                 (setter, url, basepath, filename, fn_prio, overwrite),
                 (expected_size, timeout, headers),
             ), done, total in self.dl.get_running()
-        )
+        ]
         completed = self.dl.get_completed()
         failed = self.dl.get_failed()
         return waiting, running, completed, failed
@@ -511,7 +512,7 @@ class Catcher:
             fn_prio = None
 
         if not self.casts_dir.is_dir():
-            logging.warning("Output directory <%s> doesn't exist", self.casts_dir)
+            logger.warning("Output directory <%s> doesn't exist", self.casts_dir)
             return None
 
         dirpath = self.casts_dir / safe_filename(cast_uid, "_")  # make sure still unique
@@ -522,7 +523,7 @@ class Catcher:
             raise KeyError((cast_uid, episode_uid))
 
         if not force and db_entry.get("localname"):
-            logging.debug("File already downloaded for %s/%s: %s", cast_uid, episode_uid, db_entry.get("localname"))
+            logger.debug("File already downloaded for %s/%s: %s", cast_uid, episode_uid, db_entry.get("localname"))
             return None
 
         # these two values are only given own variables to aid mypy in its flow analysis
@@ -540,13 +541,13 @@ class Catcher:
                 filename = None
 
         def setter(ret: Tuple[str, str, int]) -> None:
-            url, localname, length = ret
+            _url, localname, _length = ret
             db_entry["localname"] = localname  # type: ignore[index]
 
         url = db_entry.get("href")
 
         if not url:
-            logging.warning("No URL found for %s/%s", cast_uid, episode_uid)
+            logger.warning("No URL found for %s/%s", cast_uid, episode_uid)
             return None
 
         # try to fix some common URL errors

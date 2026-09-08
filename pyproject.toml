@@ -17,6 +17,8 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 dynamic = [
   "description",
@@ -37,31 +39,18 @@ urls.Source = "https://github.com/Dobatymo/podcatcher"
 scripts.podcatcher-cli = "podcatcher.cli:main"
 scripts.podcatcher-web = "podcatcher.web:main"
 
-[tool.black]
-line-length = 120
-
 [tool.ruff]
 line-length = 120
-lint.extend-select = [
-  "B",
-  "I",
-]
-lint.ignore = [
-  "B011",
-]
-
-[tool.isort]
-profile = "black"
-line_length = 120
+lint.extend-select = [ "B", "I", "S", "UP" ]
+lint.ignore = [ "B011", "S101" ]
+lint.pyupgrade.keep-runtime-typing = true
 
 [tool.mypy]
 ignore_missing_imports = true
-no_implicit_optional = true
+check_untyped_defs = true
 warn_redundant_casts = true
-warn_unused_configs = true
 warn_unused_ignores = true
 warn_unreachable = true
 strict_equality = true
-
-[tool.bandit]
-skips = [ "B101" ]
+warn_unused_configs = true
+no_implicit_optional = true

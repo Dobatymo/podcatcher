@@ -1,5 +1,6 @@
 from datetime import timedelta
 from pathlib import Path
+from typing import Optional
 from unittest import TestCase
 
 from podcatcher.catcher import Catcher, parse_itunes_duration
@@ -15,7 +16,7 @@ class CatcherTest(TestCase):
 
     def test_parse_itunes_duration(self):
         result = parse_itunes_duration("12:34:56")
-        truth = timedelta(hours=12, minutes=34, seconds=56)
+        truth: Optional[timedelta] = timedelta(hours=12, minutes=34, seconds=56)
         self.assertEqual(truth, result)
 
         result = parse_itunes_duration(None)
